@@ -1,0 +1,868 @@
+/* Standalone report card stylesheet. This file intentionally does not depend on project CSS or frameworks. */
+:root {
+	--primary: #173f5f;
+	--secondary: #20639b;
+	--accent: #f6b93b;
+	--ink: #17202a;
+	--muted: #64748b;
+	--line: #cbd5e1;
+	--soft: #f7fafc;
+	--paper: #ffffff;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html {
+	background: #e5e7eb;
+}
+
+body {
+	margin: 0;
+	font-family: Arial, Helvetica, sans-serif;
+	color: var(--ink);
+	background: #e5e7eb;
+	line-height: 1.35;
+}
+
+.report-page {
+	width: min(100%, 210mm);
+	min-height: 297mm;
+	margin: 24px auto;
+	padding: 14mm;
+	background: var(--paper);
+	border: 1px solid #d1d5db;
+	box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+}
+
+.school-letterhead {
+	position: relative;
+	display: grid;
+	grid-template-columns: 31mm 1fr;
+	gap: 2mm;
+	align-items: center;
+	min-height: 36mm;
+	width: calc(100% + 28mm);
+	margin: -14mm -14mm 0;
+	padding: 3mm 5mm 4mm;
+	background:white;
+	border: 0;
+	border-bottom: 1.2mm solid #111;
+	isolation: isolate;
+	break-inside: avoid;
+	page-break-inside: avoid;
+}
+
+.school-letterhead::before,
+.school-letterhead::after {
+	content: "";
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 1.4mm;
+	height: .45mm;
+	background: #b0171c;
+	z-index: 2;
+}
+
+.school-letterhead::after {
+	bottom: .6mm;
+	height: .3mm;
+	background: #111;
+}
+
+.bfss-logo {
+	position: relative;
+	width: 24mm;
+	height: 24mm;
+	margin: 0 auto;
+	filter: drop-shadow(0 .6mm .5mm rgba(0, 0, 0, .28));
+}
+
+.logo-cap {
+	position: absolute;
+	left: 5.2mm;
+	top: .2mm;
+	width: 17.8mm;
+	height: 7.5mm;
+	border: .45mm solid rgba(35, 35, 35, .45);
+	border-radius: 50%;
+	background: #efe6d1;
+	color: #2c241c;
+	font-family: Georgia, "Times New Roman", serif;
+	font-size: 12px;
+	font-weight: 900;
+	letter-spacing: .8px;
+	line-height: 7mm;
+	text-align: center;
+	z-index: 4;
+}
+
+.logo-seal {
+	position: absolute;
+	left: 4.7mm;
+	top: 6mm;
+	width: 19.3mm;
+	height: 19.3mm;
+	border-radius: 50%;
+	border: 1.8mm solid #0d4b3d;
+	background: radial-gradient(circle, #f4e7b6 0 19%, #0a6c64 20% 54%, #062f28 55% 100%);
+	box-shadow: inset 0 0 0 .65mm #d6efe8, inset 0 0 0 1.2mm #07372f;
+	z-index: 3;
+}
+
+.logo-seal::before,
+.logo-seal::after {
+	content: "";
+	position: absolute;
+	top: 5mm;
+	width: 9mm;
+	height: 16mm;
+	background: #b21f2a;
+	z-index: -1;
+}
+
+.logo-seal::before {
+	left: -8mm;
+	transform: rotate(-29deg) skewY(18deg);
+	border-radius: 100% 0 70% 20%;
+}
+
+.logo-seal::after {
+	right: -8mm;
+	transform: rotate(29deg) skewY(-18deg);
+	border-radius: 0 100% 20% 70%;
+}
+
+.seal-book {
+	position: absolute;
+	left: 50%;
+	top: 49%;
+	width: 9mm;
+	height: 5mm;
+	transform: translate(-50%, -50%);
+	border-radius: 1mm;
+	background: linear-gradient(90deg, #fff 0 47%, #dfe8e3 48% 52%, #fff 53% 100%);
+	border: .35mm solid #5d3421;
+}
+
+.seal-book::after {
+	content: "";
+	position: absolute;
+	left: 3.4mm;
+	top: 1.1mm;
+	width: 2.2mm;
+	height: 2.2mm;
+	border-radius: 50%;
+	background: #b11b25;
+}
+
+.seal-text {
+	position: absolute;
+	left: 50%;
+	bottom: 1.2mm;
+	transform: translateX(-50%);
+	color: #e8f7ee;
+	font-size: 5.5px;
+	font-weight: 900;
+	letter-spacing: .7px;
+}
+
+.logo-ribbon {
+	position: absolute;
+	left: 7mm;
+	bottom: 0;
+	width: 15mm;
+	height: 5mm;
+	border-radius: 0 0 50% 50%;
+	background: #b21f2a;
+	z-index: 1;
+}
+
+.school-heading {
+	text-align: center;
+	padding-top: 1mm;
+}
+
+.school-heading h1 {
+	margin: 0;
+	color: #123c2d;
+	font-family: Impact, "Arial Black", "Franklin Gothic Heavy", sans-serif;
+	font-size: 22px;
+	font-weight: 900;
+	line-height: .98;
+	letter-spacing: .4px;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+
+.school-heading h2 {
+	margin: 0;
+	color: black;
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 18px;
+	font-weight: 900;
+	line-height: .98;
+	letter-spacing: 0px;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+
+.school-heading p {
+	margin: 0;
+	color: #151515;
+	font-family: Arial, Helvetica, sans-serif;
+	line-height: 1.08;
+}
+
+.school-heading .school-levels {
+	color: green;
+	font-family: "Arial Black", Impact, sans-serif;
+	font-size: 17px;
+	font-weight: 900;
+	letter-spacing: 1px;
+	line-height: 1.02;
+	text-transform: uppercase;
+}
+
+.school-heading .motto {
+	display: block;
+	padding: 0;
+	margin: 1mm 0 0;
+	background: transparent;
+	color: #111;
+	font-size: 15px;
+	font-style: normal;
+	font-weight: 800;
+}
+
+.school-heading .address {
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.school-heading .phone {
+	font-size: 13px;
+	font-weight: 500;
+	letter-spacing: .35px;
+}
+
+.school-heading .phone strong {
+	font-weight: 900;
+}
+
+.report-title-band {
+	display: grid;
+	grid-template-columns: 1fr 2fr 1fr;
+	gap: 12px;
+	align-items: center;
+	margin: 16px 0;
+	padding: 10px 14px;
+	border: 1px solid var(--primary);
+	border-radius: 12px;
+	background: linear-gradient(135deg, #eef6ff, #ffffff);
+}
+
+.report-title-band h2 {
+	margin: 0;
+	text-align: center;
+	font-size: 20px;
+	text-transform: uppercase;
+	color: var(--primary);
+}
+
+.report-title-band span,
+.summary-line span {
+	display: block;
+	font-size: 13px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: .4px;
+	color: var(--muted);
+}
+
+.report-title-band strong {
+	font-size: 13px;
+}
+
+.student-profile-section {
+	margin-bottom: 16px;
+}
+
+.student-profile-table {
+	width: 100%;
+	border-collapse: collapse;
+	background: #fff;
+	border: 1px solid var(--line);
+	font-size: 13px;
+}
+
+.student-profile-table th,
+.student-profile-table td {
+	border: 1px solid var(--line);
+	padding: 9px 10px;
+	vertical-align: middle;
+}
+
+.student-profile-table th {
+	width: 17%;
+	background: #edf2f7;
+	color: var(--primary);
+	font-size: 13px;
+	text-align: left;
+	text-transform: uppercase;
+	letter-spacing: .35px;
+}
+
+.student-profile-table td {
+	font-weight: 700;
+}
+
+.student-profile-table .photo-cell {
+	width: 112px;
+	padding: 8px;
+	text-align: center;
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--muted);
+}
+
+.section-block {
+	margin-bottom: 16px;
+}
+
+.section-title {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+	padding: 9px 12px;
+	background: var(--primary);
+	color: #fff;
+	border-radius: 12px 12px 0 0;
+}
+
+.section-title h3 {
+	margin: 0;
+	font-size: 16px;
+	text-transform: uppercase;
+}
+
+.section-title span {
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.table-wrap {
+	overflow-x: auto;
+	border: 1px solid var(--line);
+	border-top: 0;
+}
+
+.performance-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 13px;
+}
+
+.performance-table th,
+.performance-table td {
+	padding: 8px 7px;
+	border: 1px solid var(--line);
+	text-align: center;
+}
+
+.performance-table th {
+	background: #edf2f7;
+	color: var(--primary);
+	font-weight: 800;
+	text-transform: uppercase;
+}
+
+.performance-table td:first-child,
+.performance-table th:first-child {
+	text-align: left;
+	min-width: 180px;
+}
+
+.performance-table tbody tr:nth-child(even) {
+	background: #fbfdff;
+}
+
+.summary-grid {
+	display: grid;
+	grid-template-columns: 1.1fr 1fr .9fr;
+	gap: 12px;
+	margin-bottom: 14px;
+}
+
+.summary-card {
+	padding: 12px;
+}
+
+.summary-card h3,
+.comment-box h3 {
+	margin: 0 0 10px;
+	font-size: 13px;
+	text-transform: uppercase;
+	color: var(--primary);
+}
+
+.summary-line {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 6px 0;
+	border-bottom: 1px solid #e2e8f0;
+}
+
+.summary-line:last-child {
+	border-bottom: 0;
+}
+
+.summary-line.highlight strong {
+	color: var(--primary);
+}
+
+.grade-scale p {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+	margin: 5px 0;
+	font-size: 13px;
+}
+
+.comments-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+	margin-bottom: 18px;
+}
+
+.comment-box {
+	min-height: 86px;
+	padding: 12px;
+}
+
+.comment-box p {
+	margin: 0;
+	font-size: 13px;
+}
+
+.signature-section {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(180px, 1fr));
+	gap: 14px;
+	padding-top: 10px;
+}
+
+.signature-box span {
+	display: block;
+	height: 34px;
+	border-bottom: 1px solid var(--ink);
+	margin-bottom: 6px;
+}
+
+.signature-box strong {
+	display: block;
+	text-align: center;
+	font-size: 13px;
+	text-transform: uppercase;
+}
+
+
+/* Letterhead table: fixed 2:8:2 ratio for logo, school details, and student passport. */
+.school-letterhead {
+	display: block;
+}
+
+.letterhead-table {
+	position: relative;
+	z-index: 3;
+	width: 100%;
+	border-collapse: collapse;
+	table-layout: fixed;
+}
+
+.letterhead-logo-col,
+.letterhead-passport-col {
+	width: 16.6667%;
+}
+
+.letterhead-title-col {
+	width: 66.6666%;
+}
+
+.letterhead-logo-cell,
+.letterhead-title-cell,
+.letterhead-passport-cell {
+	padding: 0;
+	vertical-align: middle;
+	border: 0;
+}
+
+.letterhead-logo-cell,
+.letterhead-passport-cell {
+	width: 16.6667%;
+	text-align: center;
+}
+
+.letterhead-title-cell {
+	width: 66.6666%;
+	padding: 0 2mm;
+}
+
+.letterhead-logo,
+.student-passport {
+	display: block;
+	max-width: 100%;
+	margin: 0 auto;
+	object-fit: cover;
+}
+
+.letterhead-logo {
+	width: 24mm;
+	height: 24mm;
+	object-fit: contain;
+}
+
+.student-passport {
+	width: 24mm;
+	height: 28mm;
+	border: .35mm solid #17202a;
+	background: #fff;
+}
+@media (max-width: 900px) {
+	.school-letterhead {
+		width: calc(100% + 36px);
+		margin: -18px -18px 0;
+	}
+
+	.report-page {
+		margin: 0;
+		width: 100%;
+		min-height: auto;
+		padding: 18px;
+	}
+
+	.report-title-band,
+	.summary-grid,
+	.comments-grid,
+	.signature-section {
+		grid-template-columns: 1fr;
+	}
+
+	.school-heading h1 {
+		font-size: 22px;
+	}
+
+	.student-photo-card {
+		grid-row: auto;
+	}
+}
+@media (max-width: 560px) {
+	.school-letterhead {
+		padding: 14px 12px 18px;
+		min-height: auto;
+	}
+
+	.bfss-logo {
+		width: 52px;
+		height: 52px;
+	}
+
+	.school-heading h1 {
+		font-size: clamp(8px, 2.5vw, 13px);
+		font-weight: 900;
+		line-height: 1.05;
+		letter-spacing: 0;
+		white-space: nowrap;
+	}
+
+	.school-heading .school-levels {
+		font-size: clamp(7px, 2vw, 10px);
+		line-height: 1.1;
+	}
+
+	.school-heading .motto {
+		font-size: clamp(7px, 1.9vw, 10px);
+	}
+
+	.school-heading .address,
+	.school-heading .phone {
+		font-size: clamp(6px, 1.8vw, 9px);
+	}
+}
+@media (max-width: 560px) {
+	.letterhead-logo {
+		width: 52px;
+		height: 52px;
+	}
+
+	.student-passport {
+		width: 52px;
+		height: 60px;
+	}
+}
+@media print {
+	@page {
+		size: A4 portrait;
+		margin: 4mm;
+	}
+
+	* {
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+	}
+
+	html,
+	body {
+		width: 202mm;
+		height: 289mm;
+		margin: 0;
+		padding: 0;
+		background: #fff;
+		overflow: hidden;
+	}
+
+	body {
+		font-size: 10.5px;
+		line-height: 1.22;
+	}
+
+	/* A4 print frame: content is sized to the printable area, not clipped after overflow. */
+	.report-page {
+		box-sizing: border-box;
+		width: 202mm;
+		height: 289mm;
+		min-height: 0;
+		max-height: 289mm;
+		margin: 0;
+		padding: 0;
+		border: 1px solid var(--primary);
+		box-shadow: none;
+		overflow: hidden;
+		display: block;
+		page-break-before: avoid;
+		page-break-after: avoid;
+		page-break-inside: avoid;
+		break-before: avoid;
+		break-after: avoid;
+		break-inside: avoid;
+	}
+
+	.school-letterhead {
+		width: 100%;
+		min-height: 31mm;
+		margin: 0;
+		padding: 1.8mm 3.2mm 3mm;
+		background: #fff;
+		border-bottom: .9mm solid #111;
+		break-inside: avoid;
+		page-break-inside: avoid;
+	}
+
+	.school-letterhead::before {
+		bottom: 1mm;
+		height: .35mm;
+		background: #b0171c;
+	}
+
+	.school-letterhead::after {
+		bottom: .45mm;
+		height: .25mm;
+		background: #111;
+	}
+
+	.letterhead-table {
+		width: 100%;
+		table-layout: fixed;
+		border-collapse: collapse;
+	}
+
+	.letterhead-logo,
+	.bfss-logo {
+		width: 22mm;
+		height: 22mm;
+	}
+
+	.student-passport {
+		width: 21mm;
+		height: 25mm;
+	}
+
+	.school-heading {
+		padding-top: .4mm;
+		text-align: center;
+	}
+
+	.school-heading h1 {
+		font-size: 20px;
+		font-weight: 900;
+		line-height: 1;
+		letter-spacing: .2px;
+		white-space: nowrap;
+	}
+
+	.school-heading .school-levels {
+		font-size: 14.5px !important;
+		line-height: 1.05;
+	}
+
+	.school-heading .motto {
+		margin-top: .7mm;
+		font-size: 13px;
+		font-weight: 800;
+		line-height: 1.12;
+	}
+
+	.school-heading .address,
+	.school-heading .phone {
+		font-size: 13px;
+		line-height: 1.12;
+	}
+
+	.report-page > center h2 {
+		margin: 2.4mm 0 2mm;
+		font-size: 17px;
+		line-height: 1.15;
+	}
+
+	.student-profile-section,
+	.section-block,
+	.summary-grid,
+	.comments-grid,
+	.signature-section {
+		margin-left: 3mm;
+		margin-right: 3mm;
+		break-inside: avoid;
+		page-break-inside: avoid;
+	}
+
+	.student-profile-section {
+		margin-top: 0;
+		margin-bottom: 2.4mm;
+	}
+
+	.section-block,
+	.summary-grid,
+	.comments-grid,
+	.signature-section {
+		margin-top: 2.6mm;
+		margin-bottom: 0;
+	}
+
+	.student-profile-table,
+	.performance-table {
+		font-size: 13px;
+		line-height: 1.16;
+	}
+
+	.student-profile-table th,
+	.student-profile-table td,
+	.performance-table th,
+	.performance-table td {
+		padding: 1.45mm 1.7mm;
+	}
+
+	.student-profile-table th {
+		font-size: 13px;
+	}
+
+	.section-title {
+		padding: 1.6mm 2.4mm;
+		border-radius: 0;
+	}
+
+	.section-title h3 {
+		font-size: 12px;
+		line-height: 1.15;
+	}
+
+	.section-title span {
+		font-size: 13px;
+	}
+
+	.table-wrap {
+		overflow: visible;
+	}
+
+	.performance-table th,
+	.performance-table td {
+		padding-top: 1.25mm;
+		padding-bottom: 1.25mm;
+	}
+
+	.performance-table td:first-child,
+	.performance-table th:first-child {
+		min-width: 0;
+		width: 34mm;
+	}
+
+	.summary-grid {
+		grid-template-columns: 1.05fr 1fr .9fr;
+		gap: 2.5mm;
+	}
+
+	.summary-card,
+	.comment-box {
+		padding: 2.2mm;
+		box-shadow: none;
+	}
+
+	.summary-card h3,
+		comment-box h3 {
+		margin-bottom: 1.4mm;
+		font-size: 13px;
+		line-height: 1.15;
+	}
+
+	.summary-line {
+		padding: 1mm 0;
+		gap: 2mm;
+	}
+
+	.report-title-band span,
+	.summary-line span {
+		font-size: 8.8px;
+	}
+
+	.grade-scale p {
+		margin: .8mm 0;
+		font-size: 9.6px;
+		line-height: 1.15;
+	}
+
+	.comments-grid {
+		grid-template-columns: 1fr 1fr;
+		gap: 2.8mm;
+	}
+
+	.comment-box {
+		min-height: 18mm;
+	}
+
+	.comment-box p {
+		min-height: 9mm;
+		font-size: 10.2px;
+		line-height: 1.28;
+	}
+
+	.signature-section {
+		grid-template-columns: repeat(2, 1fr);
+		gap: 18mm;
+		padding-top: 3mm;
+	}
+
+	.signature-box span {
+		height: 7.5mm;
+		margin-bottom: 1.8mm;
+	}
+
+	.signature-box strong {
+		font-size: 9.5px;
+		letter-spacing: .15px;
+	}
+}
+
