@@ -51,8 +51,9 @@ final class Database
 
         try {
             $dsn = sprintf(
-                'mysql:host=%s;dbname=%s;charset=%s',
+                'mysql:host=%s;port=%d;dbname=%s;charset=%s',
                 $this->config['host'] ?? '127.0.0.1',
+                (int) ($this->config['port'] ?? 3306),
                 $this->config['name'] ?? 'school_management',
                 $this->config['charset'] ?? 'utf8mb4'
             );

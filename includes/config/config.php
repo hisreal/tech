@@ -1,14 +1,20 @@
 <?php
 /**
- * Central application configuration.
+ * Central application configuration bridge for legacy pages.
  *
- * Keep environment-specific values here until a .env loader is introduced.
- * Pages and shared components should read from sms_config() instead of
- * hardcoding school identity, currency, or asset defaults.
+ * Database credentials are intentionally not stored here. The legacy
+ * sms_config('database') value is loaded from the MVC application config,
+ * which reads app/Config/database.php and the DB_* values in .env.
  */
 
+require_once __DIR__ . '/../../app/bootstrap.php';
+
+use App\Core\Application;
+
+$app = Application::instance();
+
 $smsConfig = [
-    'app_name' => 'School Management System',
+    'app_name' => $app->config('app.name', 'School Management System'),
     'school_name' => 'Brighter Future Standard School, Katsina',
     'school_logo' => 'assets/img/logo/school-logo.png',
     'currency' => '₦',
@@ -18,11 +24,5 @@ $smsConfig = [
         'primary' => '#0f766e',
         'primary_dark' => '#115e59',
     ],
-    'database' => [
-        'host' => '127.0.0.1',
-        'name' => 'school_management',
-        'user' => 'root',
-        'password' => '',
-        'charset' => 'utf8mb4',
-    ],
+    'database' => $app->config('database', []),
 ];

@@ -29,13 +29,7 @@ final class Config
                 'debug' => self::bool('APP_DEBUG', false),
                 'timezone' => $timezone,
             ],
-            'database' => [
-                'host' => self::env('DB_HOST', '127.0.0.1'),
-                'name' => self::env('DB_NAME', 'school_management'),
-                'user' => self::env('DB_USER', 'root'),
-                'password' => self::env('DB_PASS', ''),
-                'charset' => self::env('DB_CHARSET', 'utf8mb4'),
-            ],
+            'database' => self::loadDatabaseConfig($rootPath),
             'mail' => [
                 'host' => self::env('MAIL_HOST', 'localhost'),
                 'port' => (int) self::env('MAIL_PORT', 1025),
@@ -55,6 +49,32 @@ final class Config
                 'max_size' => (int) self::env('MAX_UPLOAD_SIZE', 5242880),
             ],
         ];
+    }
+
+    /**
+     * Loads the single database configuration file used by all DB consumers.
+     *
+     * To deploy on another server, edit the DB_* values in .env. The
+     * app/Config/database.php file reads those values and supplies defaults
+     * for local development.
+     *
+     * @return array<string, mixed>
+     */
+    private static function loadDatabaseConfig(string $rootPath): array
+    {
+        $configPath = $rootPath . '/app/Config/database.php';
+
+        if (!is_file($configPath)) {
+            throw new \RuntimeException('Database configuration file is missing: app/Config/database.php');
+        }
+
+        $config = require $configPath;
+
+        if (!is_array($config)) {
+            throw new \RuntimeException('Database configuration file must return an array.');
+        }
+
+        return $config;
     }
 
     /**

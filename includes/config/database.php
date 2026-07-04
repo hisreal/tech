@@ -1,9 +1,10 @@
 <?php
 /**
- * Shared database connection factory.
+ * Shared legacy database connection factory.
  *
- * The UI is currently placeholder-driven. When schema work begins, all pages
- * should obtain PDO through sms_db() instead of creating local connections.
+ * All legacy pages should obtain PDO through sms_db(). This factory reads
+ * the centralized database settings loaded from app/Config/database.php
+ * and the DB_* values in .env.
  */
 
 require_once __DIR__ . '/config.php';
@@ -19,8 +20,9 @@ function sms_db(): PDO
 
     $db = sms_config('database');
     $dsn = sprintf(
-        'mysql:host=%s;dbname=%s;charset=%s',
+        'mysql:host=%s;port=%d;dbname=%s;charset=%s',
         $db['host'],
+        (int) ($db['port'] ?? 3306),
         $db['name'],
         $db['charset']
     );
