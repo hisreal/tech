@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../includes/helpers/auth.php';
 
 use App\Services\StudentImportService;

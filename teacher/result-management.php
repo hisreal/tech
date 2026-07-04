@@ -1,4 +1,4 @@
-﻿<?php require_once('includes/header.php'); ?>
+<?php require_once('includes/header.php'); ?>
 
 <?php
 // Result management placeholder data. Replace with teacher-scoped database queries during backend integration.

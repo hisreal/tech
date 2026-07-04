@@ -1,4 +1,4 @@
-﻿<?php require_once('includes/header.php'); ?>
+<?php require_once('includes/header.php'); ?>
 
 <?php
 // Attendance placeholder data. Replace these arrays with teacher-scoped database queries later.

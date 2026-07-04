@@ -1,4 +1,4 @@
-﻿<?php require_once('includes/header.php'); ?>
+<?php require_once('includes/header.php'); ?>
 
 <?php
 // Admin dashboard placeholder data. Replace these arrays with database queries during backend integration.

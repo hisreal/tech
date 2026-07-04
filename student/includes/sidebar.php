@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Student module navigation and database-backed profile summary.
  */

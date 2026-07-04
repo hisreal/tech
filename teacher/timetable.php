@@ -1,4 +1,4 @@
-﻿<?php require_once('includes/header.php'); ?>
+<?php require_once('includes/header.php'); ?>
 
 <?php
 // Teacher timetable placeholder data. Replace these arrays with authenticated teacher/database values later.

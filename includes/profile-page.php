@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Shared profile page renderer and form handler for all authenticated portals.
  */

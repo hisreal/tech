@@ -1,4 +1,4 @@
-﻿<?php require_once('includes/header.php'); ?>
+<?php require_once('includes/header.php'); ?>
 
 <?php
 // CBT placeholder data. Replace these arrays with logged-in teacher database queries later.
