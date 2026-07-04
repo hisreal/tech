@@ -1,4 +1,4 @@
-﻿<?php require_once('includes/header.php'); ?>
+<?php require_once('includes/header.php'); ?>
 
 <?php
 // Receipt management placeholder data. Replace with receipt/payment database queries during backend integration.

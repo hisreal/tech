@@ -1,4 +1,4 @@
-﻿<?php require_once('includes/header.php'); ?>
+<?php require_once('includes/header.php'); ?>
 
 <?php
 // Fee collection placeholder data. Replace with database-backed student, fee, and payment records later.

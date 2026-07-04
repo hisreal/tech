@@ -1,4 +1,4 @@
-﻿<?php require_once('includes/header.php'); ?>
+<?php require_once('includes/header.php'); ?>
 
 <?php
 // Student fee placeholder data. Replace these arrays with database queries for sessions, fee structure, payments, and student balances later.

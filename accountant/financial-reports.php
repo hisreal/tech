@@ -1,4 +1,4 @@
-﻿<?php require_once('includes/header.php'); ?>
+<?php require_once('includes/header.php'); ?>
 
 <?php
 // Financial reports placeholder data. Replace these arrays with database-backed financial reporting queries later.

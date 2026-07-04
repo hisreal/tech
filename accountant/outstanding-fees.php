@@ -1,4 +1,4 @@
-﻿<?php require_once('includes/header.php'); ?>
+<?php require_once('includes/header.php'); ?>
 
 <?php
 // Outstanding fees placeholder data. Replace with database-backed student fee balances and transactions later.

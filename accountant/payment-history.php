@@ -1,4 +1,4 @@
-﻿<?php require_once('includes/header.php'); ?>
+<?php require_once('includes/header.php'); ?>
 
 <?php
 // Payment history placeholder data. Replace with database queries for transactions, students, receipts, and fee items later.

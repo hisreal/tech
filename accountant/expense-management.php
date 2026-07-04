@@ -1,4 +1,4 @@
-﻿<?php require_once('includes/header.php'); ?>
+<?php require_once('includes/header.php'); ?>
 
 <?php
 // Expense placeholder data. Replace with database queries, file uploads, vendors, and audit logs later.

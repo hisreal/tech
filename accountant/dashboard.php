@@ -1,4 +1,4 @@
-﻿<?php require_once('includes/header.php'); ?>
+<?php require_once('includes/header.php'); ?>
 
 <?php
 // Accountant dashboard placeholder data. Replace these arrays with finance database queries when backend integration is ready.
