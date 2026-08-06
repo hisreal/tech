@@ -1,30 +1,32 @@
 <?php require_once('includes/header.php'); ?>
 
 <?php
-// Teacher timetable placeholder data. Replace these arrays with authenticated teacher/database values later.
-$teacher = [
-	'profile_picture' => '../assets/img/avatar/avatar-21.jpg',
-	'full_name' => 'Mr. Adewale Olumide Johnson',
-	'staff_id' => 'TCH001',
-	'department' => 'Science',
-	'academic_session' => '2025/2026',
-	'term' => 'First Term'
-];
 
-$timetable = [
-	['day' => 'Monday', 'start' => '08:00', 'end' => '09:00', 'time' => '8:00 AM - 9:00 AM', 'class' => 'SS 1 Science', 'subject' => 'Mathematics', 'venue' => 'Room 12'],
-	['day' => 'Monday', 'start' => '11:00', 'end' => '12:00', 'time' => '11:00 AM - 12:00 PM', 'class' => 'JSS 2B', 'subject' => 'Computer Science', 'venue' => 'Computer Lab'],
-	['day' => 'Tuesday', 'start' => '09:00', 'end' => '10:00', 'time' => '9:00 AM - 10:00 AM', 'class' => 'JSS 1A', 'subject' => 'Mathematics', 'venue' => 'Room 5'],
-	['day' => 'Tuesday', 'start' => '12:00', 'end' => '13:00', 'time' => '12:00 PM - 1:00 PM', 'class' => 'SS 2 Science', 'subject' => 'Physics', 'venue' => 'Science Laboratory'],
-	['day' => 'Wednesday', 'start' => '08:00', 'end' => '09:00', 'time' => '8:00 AM - 9:00 AM', 'class' => 'SS 2 Science', 'subject' => 'Physics', 'venue' => 'Science Laboratory'],
-	['day' => 'Wednesday', 'start' => '10:00', 'end' => '11:00', 'time' => '10:00 AM - 11:00 AM', 'class' => 'JSS 2B', 'subject' => 'Computer Science', 'venue' => 'Lab 1'],
-	['day' => 'Thursday', 'start' => '09:00', 'end' => '10:00', 'time' => '9:00 AM - 10:00 AM', 'class' => 'SS 1 Science', 'subject' => 'Mathematics', 'venue' => 'Room 12'],
-	['day' => 'Thursday', 'start' => '12:00', 'end' => '13:00', 'time' => '12:00 PM - 1:00 PM', 'class' => 'JSS 1A', 'subject' => 'Mathematics', 'venue' => 'Room 5'],
-	['day' => 'Friday', 'start' => '08:00', 'end' => '09:00', 'time' => '8:00 AM - 9:00 AM', 'class' => 'SS 2 Science', 'subject' => 'Physics', 'venue' => 'Science Laboratory'],
-	['day' => 'Friday', 'start' => '10:00', 'end' => '11:00', 'time' => '10:00 AM - 11:00 AM', 'class' => 'JSS 2B', 'subject' => 'Computer Science', 'venue' => 'Computer Lab']
-];
+use App\Services\TimetableService;
 
-$days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+$timetableService = new TimetableService();
+$currentUser = sms_current_user();
+$teacherId = $timetableService->teacherIdForUser((int) $currentUser['id']);
+
+$sessionId = $timetableService->currentSessionId();
+$termId = $timetableService->currentTermId();
+$entries = $teacherId ? $timetableService->grid(['session_id' => $sessionId, 'term_id' => $termId, 'teacher_id' => $teacherId]) : [];
+
+$timetable = array_map(static function (array $row): array {
+	$start = substr((string) $row['start_time'], 0, 5);
+	$end = substr((string) $row['end_time'], 0, 5);
+	return [
+		'day' => $row['day_name'],
+		'start' => $start,
+		'end' => $end,
+		'time' => date('g:i A', strtotime($start)) . ' - ' . date('g:i A', strtotime($end)),
+		'class' => $row['class_name'] . ($row['section_name'] ? ' - ' . $row['section_name'] : ''),
+		'subject' => $row['subject_name'],
+		'venue' => $row['venue_name'] ?? 'Not assigned',
+	];
+}, $entries);
+
+$days = $timetableService->workingDays();
 $classes = array_values(array_unique(array_column($timetable, 'class')));
 $subjects = array_values(array_unique(array_column($timetable, 'subject')));
 

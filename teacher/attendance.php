@@ -1,36 +1,76 @@
 <?php require_once('includes/header.php'); ?>
 
 <?php
-// Attendance placeholder data. Replace these arrays with teacher-scoped database queries later.
-$schoolName = 'Brighter Future Standard School, Katsina';
+
+use App\Services\AttendanceService;
+use App\Services\TeacherService;
+
+$teacherService = new TeacherService();
+$attendanceService = new AttendanceService();
+$currentUser = sms_current_user();
+$teacherId = $teacherService->teacherIdForUser((int) $currentUser['id']);
+$staff = $teacherId ? $teacherService->find($teacherId) : null;
+$myClasses = $staff ? $staff['classes'] : [];
+$classIds = array_map(static fn (array $c): int => (int) $c['class_id'], $myClasses);
+
 $today = date('Y-m-d');
-$assignedClasses = ['JSS 1A', 'JSS 2B', 'SS 1 Science'];
-$studentsByClass = [
-	'JSS 1A' => [
-		['reg_no' => 'ST001', 'name' => 'Musa Ibrahim'],
-		['reg_no' => 'ST002', 'name' => 'Aisha Bello'],
-		['reg_no' => 'ST003', 'name' => 'Daniel Okafor'],
-		['reg_no' => 'ST004', 'name' => 'Maryam Musa'],
-		['reg_no' => 'ST005', 'name' => 'Samuel Adeyemi']
-	],
-	'JSS 2B' => [
-		['reg_no' => 'ST011', 'name' => 'Ibrahim Sani'],
-		['reg_no' => 'ST012', 'name' => 'Grace Emmanuel'],
-		['reg_no' => 'ST013', 'name' => 'Chinedu Nwosu'],
-		['reg_no' => 'ST014', 'name' => 'Hauwa Lawal']
-	],
-	'SS 1 Science' => [
-		['reg_no' => 'ST021', 'name' => 'Fatima Abdullahi'],
-		['reg_no' => 'ST022', 'name' => 'Joshua Martins'],
-		['reg_no' => 'ST023', 'name' => 'Hauwa Ibrahim'],
-		['reg_no' => 'ST024', 'name' => 'Peter Daniel']
-	]
-];
-$attendanceHistory = [
-	['date' => '2026-07-01', 'class' => 'JSS 1A', 'records' => ['ST001' => 'Present', 'ST002' => 'Absent', 'ST003' => 'Present', 'ST004' => 'Present', 'ST005' => 'Present']],
-	['date' => '2026-06-30', 'class' => 'JSS 1A', 'records' => ['ST001' => 'Present', 'ST002' => 'Present', 'ST003' => 'Present', 'ST004' => 'Absent', 'ST005' => 'Present']],
-	['date' => '2026-07-01', 'class' => 'JSS 2B', 'records' => ['ST011' => 'Present', 'ST012' => 'Present', 'ST013' => 'Absent', 'ST014' => 'Present']]
-];
+$schoolName = sms_config('school_name', 'School');
+
+$markSelection = trim((string) ($_GET['mark_class'] ?? ''));
+$markClass = 0;
+$markSection = 0;
+if ($markSelection !== '' && str_contains($markSelection, ':')) {
+	[$markClass, $markSection] = array_map('intval', explode(':', $markSelection, 2));
+}
+$markDate = trim((string) ($_GET['mark_date'] ?? $today));
+
+$ownsSelectedClass = false;
+foreach ($myClasses as $class) {
+	if ((int) $class['class_id'] === $markClass && (int) $class['id'] === $markSection) {
+		$ownsSelectedClass = true;
+		break;
+	}
+}
+
+$sessionId = $attendanceService->currentSessionId();
+$termId = $attendanceService->currentTermId();
+$studentRoster = [];
+$existingMarks = [];
+if ($ownsSelectedClass && $sessionId) {
+	$studentRoster = $attendanceService->studentRoster($sessionId, $markClass, $markSection ?: null);
+	$existingMarks = $attendanceService->existingStudentMarksForDate($markClass, $markSection ?: null, $markDate);
+}
+
+$statusOptions = ['present' => 'Present', 'absent' => 'Absent', 'late' => 'Late', 'excused' => 'Excused', 'leave' => 'Leave'];
+
+$hSearch = trim((string) ($_GET['h_search'] ?? ''));
+$hClassSel = trim((string) ($_GET['h_class'] ?? ''));
+$hStatus = trim((string) ($_GET['h_status'] ?? ''));
+$hDateFrom = trim((string) ($_GET['h_date_from'] ?? ''));
+$hDateTo = trim((string) ($_GET['h_date_to'] ?? ''));
+$hPage = max(1, (int) ($_GET['h_page'] ?? 1));
+
+$historyFilters = ['search' => $hSearch, 'status' => $hStatus, 'date_from' => $hDateFrom, 'date_to' => $hDateTo, 'class_ids' => $classIds];
+if ($hClassSel !== '' && str_contains($hClassSel, ':')) {
+	[$fClass, $fSection] = array_map('intval', explode(':', $hClassSel, 2));
+	$historyFilters['class_id'] = $fClass;
+	$historyFilters['section_id'] = $fSection;
+}
+$historyResult = $classIds ? $attendanceService->listStudentAttendance($historyFilters, $hPage, 10) : ['data' => [], 'meta' => ['total' => 0, 'page' => 1, 'last_page' => 1]];
+
+$todayRecords = $classIds ? $attendanceService->listStudentAttendance(['class_ids' => $classIds, 'date' => $today], 1, 1000)['data'] : [];
+$presentToday = count(array_filter($todayRecords, static fn ($r) => $r['status'] === 'present'));
+$absentToday = count(array_filter($todayRecords, static fn ($r) => $r['status'] === 'absent'));
+$totalToday = count($todayRecords);
+
+function teacherAttValue($value) {
+	return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+}
+
+function sms_tatt_query(array $overrides = []): string
+{
+	return http_build_query(array_merge($_GET, $overrides));
+}
 ?>
 
 <style>
@@ -70,17 +110,9 @@ $attendanceHistory = [
 		background: linear-gradient(135deg, rgba(240, 253, 244, .96), rgba(255, 255, 255, .98));
 	}
 
-	.attendance-page .attendance-kicker,
-	.attendance-page .control-icon,
-	.attendance-page .summary-icon,
-	.attendance-page .status-choice,
-	.attendance-page .report-actions .btn {
+	.attendance-page .attendance-kicker {
 		display: inline-flex;
 		align-items: center;
-		justify-content: center;
-	}
-
-	.attendance-page .attendance-kicker {
 		gap: 8px;
 		padding: 8px 12px;
 		border-radius: 999px;
@@ -91,381 +123,206 @@ $attendanceHistory = [
 		text-transform: uppercase;
 	}
 
-	.attendance-page .attendance-hero h3 {
-		margin: 12px 0 8px;
-		color: var(--att-ink);
-		font-size: 26px;
-		font-weight: 900;
-	}
-
-	.attendance-page .attendance-hero p {
-		max-width: 780px;
-		margin: 0;
-		color: var(--att-muted);
-	}
-
-	.attendance-page .attendance-card,
-	.attendance-page .table-card {
-		border-radius: 24px;
-		overflow: hidden;
-	}
-
-	.attendance-page .attendance-card {
-		padding: 24px;
-		margin-bottom: 22px;
-	}
-
-	.attendance-page .form-label {
-		color: var(--att-ink);
-		font-size: 13px;
-		font-weight: 900;
-	}
-
-	.attendance-page .control-field {
-		position: relative;
-	}
-
-	.attendance-page .control-icon {
-		position: absolute;
-		left: 14px;
-		top: 50%;
-		width: 22px;
-		height: 22px;
-		transform: translateY(-50%);
-		color: var(--att-primary);
-		pointer-events: none;
-	}
-
-	.attendance-page .form-select,
-	.attendance-page .form-control {
-		min-height: 50px;
-		padding-left: 44px;
-		border: 1px solid rgba(148, 163, 184, .32);
-		border-radius: 15px;
-		font-weight: 700;
-		box-shadow: none;
-	}
-
-	.attendance-page .form-select:focus,
-	.attendance-page .form-control:focus {
-		border-color: rgba(15, 118, 110, .72);
-		box-shadow: 0 0 0 4px rgba(15, 118, 110, .12);
-	}
-
-	.attendance-page .load-btn,
-	.attendance-page .save-btn,
-	.attendance-page .update-btn {
-		min-height: 50px;
-		border: 0;
-		border-radius: 15px;
-		background: linear-gradient(135deg, var(--att-primary), var(--att-primary-dark));
-		color: #fff;
-		font-weight: 900;
-		box-shadow: 0 16px 34px rgba(15, 118, 110, .24);
-	}
-
-	.attendance-page .load-btn:hover,
-	.attendance-page .save-btn:hover,
-	.attendance-page .update-btn:hover {
-		color: #fff;
-		transform: translateY(-2px);
-	}
-
-	.attendance-page .summary-card {
-		height: 100%;
-		padding: 18px;
-		border-radius: 20px;
-	}
-
-	.attendance-page .summary-icon {
-		width: 42px;
-		height: 42px;
-		border-radius: 14px;
-		background: var(--att-primary-soft);
-		color: var(--att-primary);
-	}
-
+	.attendance-page .attendance-hero h3 { margin: 12px 0 8px; color: var(--att-ink); font-size: 26px; font-weight: 900; }
+	.attendance-page .attendance-hero p { max-width: 780px; margin: 0; color: var(--att-muted); }
+	.attendance-page .attendance-card, .attendance-page .table-card { border-radius: 24px; overflow: hidden; }
+	.attendance-page .attendance-card { padding: 24px; margin-bottom: 22px; }
+	.attendance-page .form-label { color: var(--att-ink); font-size: 13px; font-weight: 900; }
+	.attendance-page .form-select, .attendance-page .form-control { min-height: 50px; border: 1px solid rgba(148, 163, 184, .32); border-radius: 15px; font-weight: 700; box-shadow: none; }
+	.attendance-page .form-select:focus, .attendance-page .form-control:focus { border-color: rgba(15, 118, 110, .72); box-shadow: 0 0 0 4px rgba(15, 118, 110, .12); }
+	.attendance-page .load-btn, .attendance-page .save-btn { min-height: 50px; border: 0; border-radius: 15px; background: linear-gradient(135deg, var(--att-primary), var(--att-primary-dark)); color: #fff; font-weight: 900; box-shadow: 0 16px 34px rgba(15, 118, 110, .24); }
+	.attendance-page .load-btn:hover, .attendance-page .save-btn:hover { color: #fff; transform: translateY(-2px); }
+	.attendance-page .summary-card { height: 100%; padding: 18px; border-radius: 20px; }
+	.attendance-page .summary-icon { width: 42px; height: 42px; border-radius: 14px; background: var(--att-primary-soft); color: var(--att-primary); display: inline-flex; align-items: center; justify-content: center; }
 	.attendance-page .summary-icon.success { background: var(--att-success-soft); color: var(--att-success); }
 	.attendance-page .summary-icon.danger { background: var(--att-danger-soft); color: var(--att-danger); }
 	.attendance-page .summary-icon.blue { background: var(--att-blue-soft); color: var(--att-blue); }
-
-	.attendance-page .summary-card h4 {
-		margin: 10px 0 2px;
-		font-weight: 900;
-	}
-
-	.attendance-page .notice {
-		display: none;
-		gap: 8px;
-		align-items: center;
-		padding: 12px 14px;
-		border-radius: 14px;
-		font-weight: 800;
-		margin-bottom: 16px;
-	}
-
-	.attendance-page .notice.is-visible { display: flex; }
-	.attendance-page .notice.success { color: var(--att-success); background: var(--att-success-soft); }
-	.attendance-page .notice.error { color: var(--att-danger); background: var(--att-danger-soft); }
-
-	.attendance-page .table-toolbar {
-		padding: 18px 20px;
-		border-bottom: 1px solid rgba(148, 163, 184, .2);
-		background: linear-gradient(180deg, #f8fafc, #fff);
-	}
-
-	.attendance-page .table-scroll {
-		max-height: 560px;
-		overflow: auto;
-	}
-
-	.attendance-page .attendance-table {
-		min-width: 760px;
-		margin-bottom: 0;
-	}
-
-	.attendance-page .attendance-table thead th {
-		position: sticky;
-		top: 0;
-		z-index: 2;
-		padding: 14px 12px;
-		background: linear-gradient(135deg, var(--att-primary), var(--att-primary-dark));
-		color: #fff;
-		border: 0;
-		font-size: 12px;
-		font-weight: 900;
-		text-transform: uppercase;
-	}
-
-	.attendance-page .attendance-table td {
-		padding: 12px;
-		vertical-align: middle;
-		border-color: rgba(148, 163, 184, .2);
-		font-weight: 700;
-	}
-
-	.attendance-page .status-toggle {
-		display: flex;
-		gap: 8px;
-		flex-wrap: wrap;
-	}
-
-	.attendance-page .status-choice {
-		gap: 7px;
-		padding: 8px 12px;
-		border: 1px solid rgba(148, 163, 184, .26);
-		border-radius: 999px;
-		background: #fff;
-		font-weight: 900;
-		cursor: pointer;
-	}
-
-	.attendance-page .status-choice.present.active { color: var(--att-success); background: var(--att-success-soft); border-color: rgba(22, 163, 74, .35); }
-	.attendance-page .status-choice.absent.active { color: var(--att-danger); background: var(--att-danger-soft); border-color: rgba(220, 38, 38, .35); }
-
-	.attendance-page .history-table {
-		min-width: 820px;
-	}
-
-	.attendance-page .report-actions {
-		gap: 10px;
-	}
+	.attendance-page .summary-card h4 { margin: 10px 0 2px; font-weight: 900; }
+	.attendance-page .table-toolbar { padding: 18px 20px; border-bottom: 1px solid rgba(148, 163, 184, .2); background: linear-gradient(180deg, #f8fafc, #fff); }
+	.attendance-page .table-scroll { max-height: 560px; overflow: auto; }
+	.attendance-page .attendance-table { min-width: 760px; margin-bottom: 0; }
+	.attendance-page .attendance-table thead th { position: sticky; top: 0; z-index: 2; padding: 14px 12px; background: linear-gradient(135deg, var(--att-primary), var(--att-primary-dark)); color: #fff; border: 0; font-size: 12px; font-weight: 900; text-transform: uppercase; }
+	.attendance-page .attendance-table td { padding: 12px; vertical-align: middle; border-color: rgba(148, 163, 184, .2); font-weight: 700; }
+	.attendance-page .report-actions { gap: 10px; }
+	.attendance-page .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 999px; font-size: 12px; font-weight: 900; }
+	.attendance-page .status-present { color: var(--att-success); background: var(--att-success-soft); }
+	.attendance-page .status-absent { color: var(--att-danger); background: var(--att-danger-soft); }
+	.attendance-page .status-late,.attendance-page .status-excused,.attendance-page .status-leave { color: #b45309; background: var(--att-warning-soft); }
 
 	@media (max-width: 767.98px) {
-		.attendance-page .attendance-hero,
-		.attendance-page .attendance-card { padding: 20px; border-radius: 20px; }
+		.attendance-page .attendance-hero, .attendance-page .attendance-card { padding: 20px; border-radius: 20px; }
 		.attendance-page .attendance-hero h3 { font-size: 22px; }
-		.attendance-page .report-actions,
-		.attendance-page .report-actions .btn { width: 100%; }
+		.attendance-page .report-actions, .attendance-page .report-actions .btn { width: 100%; }
 	}
 </style>
 
 <div class="attendance-page">
-	<!-- Page intro: explains the daily attendance workflow. -->
+	<?php foreach (sms_flash() as $type => $messages): ?>
+		<?php foreach ($messages as $message): ?>
+			<div class="alert alert-<?php echo $type === 'error' ? 'danger' : teacherAttValue($type); ?>" role="alert"><?php echo teacherAttValue($message); ?></div>
+		<?php endforeach; ?>
+	<?php endforeach; ?>
+
 	<section class="attendance-hero">
 		<span class="attendance-kicker"><i class="fa-solid fa-calendar-check"></i> Attendance Management</span>
 		<h3>Daily Attendance & Reports</h3>
 		<p>Select an assigned class and date, mark students present or absent, review history, edit records, and export attendance reports.</p>
 	</section>
 
-	<!-- Attendance controls: class and date selection before loading students. -->
 	<section class="attendance-card">
-		<div id="attendanceNotice" class="notice" role="alert"><i class="fa-solid fa-circle-info"></i><span></span></div>
-		<form id="loadAttendanceForm" class="row g-3 align-items-end" novalidate>
+		<form method="get" class="row g-3 align-items-end" novalidate>
 			<div class="col-md-5">
 				<label class="form-label" for="attendanceClass">Class Selection</label>
-				<div class="control-field"><span class="control-icon"><i class="fa-solid fa-school"></i></span><select class="form-select" id="attendanceClass" required><option value="">Select assigned class</option><?php foreach ($assignedClasses as $class): ?><option value="<?php echo $class; ?>"><?php echo $class; ?></option><?php endforeach; ?></select></div>
+				<select class="form-select" id="attendanceClass" name="mark_class" required>
+					<option value="">Select assigned class</option>
+					<?php foreach ($myClasses as $class): ?>
+						<option value="<?php echo teacherAttValue($class['class_id'] . ':' . $class['id']); ?>" <?php echo $markSelection === $class['class_id'] . ':' . $class['id'] ? 'selected' : ''; ?>><?php echo teacherAttValue($class['name']); ?></option>
+					<?php endforeach; ?>
+				</select>
 			</div>
 			<div class="col-md-4">
 				<label class="form-label" for="attendanceDate">Date Selection</label>
-				<div class="control-field"><span class="control-icon"><i class="fa-solid fa-calendar-day"></i></span><input type="date" class="form-control" id="attendanceDate" value="<?php echo $today; ?>" required></div>
+				<input type="date" class="form-control" id="attendanceDate" name="mark_date" max="<?php echo teacherAttValue($today); ?>" value="<?php echo teacherAttValue($markDate); ?>" required>
 			</div>
 			<div class="col-md-3">
 				<button type="submit" class="btn load-btn w-100"><i class="fa-solid fa-users-viewfinder me-2"></i>Load Students</button>
 			</div>
 		</form>
+		<?php if (!$myClasses): ?><p class="text-muted mt-3 mb-0">You have no assigned classes yet. Contact the administrator.</p><?php endif; ?>
 	</section>
 
-	<!-- Attendance dashboard cards: recalculated whenever statuses change. -->
 	<section class="row g-3 mb-4" aria-label="Attendance summary cards">
-		<div class="col-sm-6 col-xl-3"><div class="summary-card"><span class="summary-icon"><i class="fa-solid fa-users"></i></span><h4 id="totalStudents">0</h4><p class="text-muted mb-0">Total Students</p></div></div>
-		<div class="col-sm-6 col-xl-3"><div class="summary-card"><span class="summary-icon success"><i class="fa-solid fa-check"></i></span><h4 id="presentToday">0</h4><p class="text-muted mb-0">Present Today</p></div></div>
-		<div class="col-sm-6 col-xl-3"><div class="summary-card"><span class="summary-icon danger"><i class="fa-solid fa-times"></i></span><h4 id="absentToday">0</h4><p class="text-muted mb-0">Absent Today</p></div></div>
-		<div class="col-sm-6 col-xl-3"><div class="summary-card"><span class="summary-icon blue"><i class="fa-solid fa-percent"></i></span><h4 id="attendanceRate">0%</h4><p class="text-muted mb-0">Attendance Rate</p></div></div>
+		<div class="col-sm-6 col-xl-3"><div class="summary-card"><span class="summary-icon"><i class="fa-solid fa-users"></i></span><h4><?php echo (int) $totalToday; ?></h4><p class="text-muted mb-0">Total Marked Today</p></div></div>
+		<div class="col-sm-6 col-xl-3"><div class="summary-card"><span class="summary-icon success"><i class="fa-solid fa-check"></i></span><h4><?php echo (int) $presentToday; ?></h4><p class="text-muted mb-0">Present Today</p></div></div>
+		<div class="col-sm-6 col-xl-3"><div class="summary-card"><span class="summary-icon danger"><i class="fa-solid fa-times"></i></span><h4><?php echo (int) $absentToday; ?></h4><p class="text-muted mb-0">Absent Today</p></div></div>
+		<div class="col-sm-6 col-xl-3"><div class="summary-card"><span class="summary-icon blue"><i class="fa-solid fa-percent"></i></span><h4><?php echo $totalToday ? round(($presentToday / $totalToday) * 100, 1) : 0; ?>%</h4><p class="text-muted mb-0">Attendance Rate</p></div></div>
 	</section>
 
-	<!-- Daily attendance table: loaded after selecting class and date. -->
-	<section class="table-card mb-4" id="dailyTableCard" style="display:none;">
-		<div class="table-toolbar d-flex align-items-center justify-content-between flex-wrap gap-3"><div><h5 class="mb-1" id="dailyTitle">Daily Attendance</h5><p class="text-muted mb-0">Switch each student between Present and Absent.</p></div><div class="report-actions d-flex flex-wrap"><button type="button" class="btn save-btn" id="saveAttendanceBtn"><i class="fa-solid fa-floppy-disk me-2"></i>Save Attendance</button><button type="button" class="btn update-btn" id="updateAttendanceBtn" style="display:none;"><i class="fa-solid fa-pen-to-square me-2"></i>Update Attendance</button></div></div>
-		<div class="table-scroll"><table class="table attendance-table align-middle"><thead><tr><th>Registration Number</th><th>Student Name</th><th>Status</th></tr></thead><tbody id="dailyAttendanceBody"></tbody></table></div>
+	<?php if ($ownsSelectedClass): ?>
+	<section class="table-card mb-4">
+		<?php if (!$studentRoster): ?>
+			<div class="p-4 text-center text-muted">No active students are enrolled in this class for the current session.</div>
+		<?php else: ?>
+			<form method="post" action="attendance-mark-students.php">
+				<input type="hidden" name="_token" value="<?php echo teacherAttValue(sms_csrf_token()); ?>">
+				<input type="hidden" name="session_id" value="<?php echo (int) $sessionId; ?>">
+				<input type="hidden" name="term_id" value="<?php echo (int) $termId; ?>">
+				<input type="hidden" name="class_id" value="<?php echo (int) $markClass; ?>">
+				<input type="hidden" name="section_id" value="<?php echo (int) $markSection; ?>">
+				<input type="hidden" name="attendance_date" value="<?php echo teacherAttValue($markDate); ?>">
+				<input type="hidden" name="redirect_query" value="<?php echo teacherAttValue(http_build_query($_GET)); ?>">
+				<div class="table-toolbar d-flex align-items-center justify-content-between flex-wrap gap-3">
+					<div><h5 class="mb-1">Daily Attendance - <?php echo teacherAttValue($markDate); ?></h5><p class="text-muted mb-0"><?php echo count($studentRoster); ?> student(s)<?php echo $existingMarks ? ' - already marked; saving will update existing records' : ''; ?></p></div>
+					<div class="report-actions d-flex flex-wrap"><button type="button" class="btn btn-outline-success" id="markAllPresent"><i class="fa-solid fa-check-double me-2"></i>Mark All Present</button><button type="submit" class="btn save-btn"><i class="fa-solid fa-floppy-disk me-2"></i>Save Attendance</button></div>
+				</div>
+				<div class="table-scroll"><table class="table attendance-table align-middle"><thead><tr><th>Registration Number</th><th>Student Name</th><th>Status</th><th>Notes</th></tr></thead><tbody>
+					<?php foreach ($studentRoster as $student): ?>
+						<?php $existing = $existingMarks[(int) $student['id']] ?? null; ?>
+						<tr>
+							<td><?php echo teacherAttValue($student['registration_no']); ?></td>
+							<td><?php echo teacherAttValue(trim($student['first_name'] . ' ' . $student['last_name'])); ?></td>
+							<td><select class="form-select mark-status" name="status[<?php echo (int) $student['id']; ?>]"><?php foreach ($statusOptions as $value => $label): ?><option value="<?php echo teacherAttValue($value); ?>" <?php echo ($existing['status'] ?? 'present') === $value ? 'selected' : ''; ?>><?php echo teacherAttValue($label); ?></option><?php endforeach; ?></select></td>
+							<td><input class="form-control" name="notes[<?php echo (int) $student['id']; ?>]" value="<?php echo teacherAttValue($existing['notes'] ?? ''); ?>" placeholder="Optional"></td>
+						</tr>
+					<?php endforeach; ?>
+				</tbody></table></div>
+			</form>
+		<?php endif; ?>
 	</section>
+	<?php elseif ($markSelection !== ''): ?>
+		<div class="alert alert-danger">You are not assigned to that class.</div>
+	<?php endif; ?>
 
-	<!-- Attendance history and report filters: previous records can be edited or exported. -->
 	<section class="attendance-card">
-		<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3"><div><h5 class="mb-1">Attendance History & Reports</h5><p class="text-muted mb-0">Filter previous records, edit attendance, and generate reports.</p></div><div class="report-actions d-flex flex-wrap"><button type="button" class="btn btn-outline-success" id="exportCsvBtn"><i class="fa-solid fa-file-csv me-2"></i>CSV</button><button type="button" class="btn btn-outline-danger" id="exportPdfBtn"><i class="fa-solid fa-file-pdf me-2"></i>PDF</button></div></div>
-		<div class="row g-3 mb-3">
-			<div class="col-md-3"><label class="form-label" for="historyClass">Class</label><select class="form-select ps-3" id="historyClass"><option value="">All Classes</option><?php foreach ($assignedClasses as $class): ?><option value="<?php echo $class; ?>"><?php echo $class; ?></option><?php endforeach; ?></select></div>
-			<div class="col-md-3"><label class="form-label" for="historyFrom">Date From</label><input type="date" class="form-control ps-3" id="historyFrom"></div>
-			<div class="col-md-3"><label class="form-label" for="historyTo">Date To</label><input type="date" class="form-control ps-3" id="historyTo"></div>
-			<div class="col-md-3"><label class="form-label" for="reportType">Report Type</label><select class="form-select ps-3" id="reportType"><option value="Daily">Daily</option><option value="Weekly">Weekly</option><option value="Monthly">Monthly</option></select></div>
+		<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+			<div><h5 class="mb-1">Attendance History & Reports</h5><p class="text-muted mb-0">Filter previous records, edit attendance, and export reports.</p></div>
+			<div class="report-actions d-flex flex-wrap">
+				<a class="btn btn-outline-success" href="attendance-export.php?<?php echo teacherAttValue(sms_tatt_query(['format' => 'csv'])); ?>"><i class="fa-solid fa-file-csv me-2"></i>CSV</a>
+				<a class="btn btn-outline-danger" href="attendance-export.php?<?php echo teacherAttValue(sms_tatt_query(['format' => 'pdf'])); ?>"><i class="fa-solid fa-file-pdf me-2"></i>PDF</a>
+			</div>
 		</div>
-		<div class="table-scroll"><table class="table attendance-table history-table align-middle"><thead><tr><th>Date</th><th>Class</th><th>Present</th><th>Absent</th><th>Attendance Rate</th><th>Action</th></tr></thead><tbody id="historyBody"></tbody></table></div>
+		<form method="get" class="row g-3 mb-3">
+			<input type="hidden" name="mark_class" value="<?php echo teacherAttValue($markSelection); ?>">
+			<input type="hidden" name="mark_date" value="<?php echo teacherAttValue($markDate); ?>">
+			<div class="col-md-3"><label class="form-label">Student</label><input class="form-control" name="h_search" value="<?php echo teacherAttValue($hSearch); ?>" placeholder="Name or reg. no."></div>
+			<div class="col-md-3"><label class="form-label">Class</label><select class="form-select" name="h_class"><option value="">All My Classes</option><?php foreach ($myClasses as $class): ?><option value="<?php echo teacherAttValue($class['class_id'] . ':' . $class['id']); ?>" <?php echo $hClassSel === $class['class_id'] . ':' . $class['id'] ? 'selected' : ''; ?>><?php echo teacherAttValue($class['name']); ?></option><?php endforeach; ?></select></div>
+			<div class="col-md-2"><label class="form-label">Status</label><select class="form-select" name="h_status"><option value="">All Statuses</option><?php foreach ($statusOptions as $value => $label): ?><option value="<?php echo teacherAttValue($value); ?>" <?php echo $hStatus === $value ? 'selected' : ''; ?>><?php echo teacherAttValue($label); ?></option><?php endforeach; ?></select></div>
+			<div class="col-md-2"><label class="form-label">From</label><input class="form-control" type="date" name="h_date_from" value="<?php echo teacherAttValue($hDateFrom); ?>"></div>
+			<div class="col-md-2"><label class="form-label">To</label><input class="form-control" type="date" name="h_date_to" value="<?php echo teacherAttValue($hDateTo); ?>"></div>
+			<div class="col-12 d-flex gap-2"><button class="btn load-btn" type="submit"><i class="fa-solid fa-search me-2"></i>Search</button><a class="btn btn-outline-secondary" href="attendance.php">Reset</a></div>
+		</form>
+		<div class="table-scroll"><table class="table attendance-table history-table align-middle"><thead><tr><th>Date</th><th>Reg No.</th><th>Student</th><th>Class</th><th>Status</th><th>Notes</th><th>Action</th></tr></thead><tbody>
+			<?php foreach ($historyResult['data'] as $record): ?>
+				<tr>
+					<td><?php echo teacherAttValue($record['attendance_date']); ?></td>
+					<td><?php echo teacherAttValue($record['registration_no']); ?></td>
+					<td><?php echo teacherAttValue(trim($record['first_name'] . ' ' . $record['last_name'])); ?></td>
+					<td><?php echo teacherAttValue($record['class_name'] . ($record['section_name'] ? ' - ' . $record['section_name'] : '')); ?></td>
+					<td><span class="status-badge status-<?php echo teacherAttValue($record['status']); ?>"><?php echo teacherAttValue(ucfirst($record['status'])); ?></span></td>
+					<td><?php echo teacherAttValue($record['notes'] ?? ''); ?></td>
+					<td>
+						<div class="d-flex gap-1">
+							<button class="btn btn-sm btn-outline-success edit-record" type="button" data-bs-toggle="modal" data-bs-target="#editAttendanceModal" data-id="<?php echo (int) $record['id']; ?>" data-status="<?php echo teacherAttValue($record['status']); ?>" data-notes="<?php echo teacherAttValue($record['notes'] ?? ''); ?>"><i class="fa-solid fa-pen"></i></button>
+							<form method="post" action="attendance-delete.php" onsubmit="return confirm('Delete this attendance record?');">
+								<input type="hidden" name="_token" value="<?php echo teacherAttValue(sms_csrf_token()); ?>">
+								<input type="hidden" name="attendance_id" value="<?php echo (int) $record['id']; ?>">
+								<button class="btn btn-sm btn-outline-danger" type="submit"><i class="fa-solid fa-trash"></i></button>
+							</form>
+						</div>
+					</td>
+				</tr>
+			<?php endforeach; ?>
+			<?php if (!$historyResult['data']): ?><tr><td colspan="7" class="text-center text-muted py-4">No attendance records match your search.</td></tr><?php endif; ?>
+		</tbody></table></div>
+		<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-3">
+			<span class="text-muted fw-bold"><?php echo (int) $historyResult['meta']['total']; ?> record(s) - page <?php echo (int) $historyResult['meta']['page']; ?> of <?php echo (int) $historyResult['meta']['last_page']; ?></span>
+			<?php if ($historyResult['meta']['last_page'] > 1): ?>
+				<div class="d-flex gap-2 flex-wrap">
+					<?php for ($p = 1; $p <= $historyResult['meta']['last_page']; $p++): ?>
+						<a class="btn btn-sm <?php echo $p === (int) $historyResult['meta']['page'] ? 'btn-success' : 'btn-outline-secondary'; ?>" href="attendance.php?<?php echo teacherAttValue(sms_tatt_query(['h_page' => $p])); ?>"><?php echo $p; ?></a>
+					<?php endfor; ?>
+				</div>
+			<?php endif; ?>
+		</div>
 	</section>
+</div>
+
+<div class="modal fade" id="editAttendanceModal" tabindex="-1" aria-hidden="true">
+	<div class="modal-dialog modal-dialog-centered">
+		<form class="modal-content" method="post" action="attendance-update.php">
+			<div class="modal-header"><h5 class="modal-title">Edit Attendance Record</h5><button class="btn-close" type="button" data-bs-dismiss="modal"></button></div>
+			<div class="modal-body">
+				<input type="hidden" name="_token" value="<?php echo teacherAttValue(sms_csrf_token()); ?>">
+				<input type="hidden" name="attendance_id" id="attendanceRecordId">
+				<label>Status</label>
+				<select class="form-select mb-3" name="status" id="attendanceRecordStatus" required><?php foreach ($statusOptions as $value => $label): ?><option value="<?php echo teacherAttValue($value); ?>"><?php echo teacherAttValue($label); ?></option><?php endforeach; ?></select>
+				<label>Notes</label>
+				<textarea class="form-control" name="notes" id="attendanceRecordNotes"></textarea>
+			</div>
+			<div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success" type="submit">Update Attendance</button></div>
+		</form>
+	</div>
 </div>
 
 </div>
 </div>
 
 <script data-cfasync="false" type="text/javascript">
-// Attendance module behavior: load students, switch status, save/edit records, calculate rates, and export reports.
 (function () {
-	var schoolName = <?php echo json_encode($schoolName); ?>;
-	var studentsByClass = <?php echo json_encode($studentsByClass); ?>;
-	var records = <?php echo json_encode($attendanceHistory); ?>;
-	var selectedClass = '';
-	var selectedDate = '';
-	var editingKey = '';
-
-	function byId(id) { return document.getElementById(id); }
-	function recordKey(className, date) { return className + '|' + date; }
-	function findRecord(className, date) { return records.find(function (record) { return record.class === className && record.date === date; }); }
-	function percent(present, total) { return total ? ((present / total) * 100).toFixed(1) + '%' : '0%'; }
-	function showNotice(type, message) { var notice = byId('attendanceNotice'); notice.className = 'notice is-visible ' + type; notice.querySelector('span').textContent = message; }
-
-	function studentPercentage(className, regNo) {
-		var classRecords = records.filter(function (record) { return record.class === className && record.records[regNo]; });
-		var present = classRecords.filter(function (record) { return record.records[regNo] === 'Present'; }).length;
-		return percent(present, classRecords.length);
-	}
-
-	function calculateDailySummary() {
-		var rows = document.querySelectorAll('#dailyAttendanceBody tr');
-		var total = rows.length;
-		var present = Array.prototype.filter.call(rows, function (row) { return row.getAttribute('data-status') === 'Present'; }).length;
-		byId('totalStudents').textContent = total;
-		byId('presentToday').textContent = present;
-		byId('absentToday').textContent = total - present;
-		byId('attendanceRate').textContent = percent(present, total);
-	}
-
-	function statusButtons(status) {
-		return '<div class="status-toggle"><button type="button" class="status-choice present ' + (status === 'Present' ? 'active' : '') + '" data-status="Present"><i class="fa-solid fa-check"></i>Present</button><button type="button" class="status-choice absent ' + (status === 'Absent' ? 'active' : '') + '" data-status="Absent"><i class="fa-solid fa-times"></i>Absent</button></div>';
-	}
-
-	function renderStudents(className, date, existing) {
-		var body = byId('dailyAttendanceBody');
-		var students = studentsByClass[className] || [];
-		body.innerHTML = students.map(function (student) {
-			var status = existing && existing.records[student.reg_no] ? existing.records[student.reg_no] : 'Present';
-			return '<tr data-reg="' + student.reg_no + '" data-status="' + status + '"><td>' + student.reg_no + '</td><td>' + student.name + '<br><small class="text-muted">Attendance: ' + studentPercentage(className, student.reg_no) + '</small></td><td>' + statusButtons(status) + '</td></tr>';
-		}).join('');
-		calculateDailySummary();
-	}
-
-	function currentDailyRecords() {
-		var data = {};
-		document.querySelectorAll('#dailyAttendanceBody tr').forEach(function (row) { data[row.getAttribute('data-reg')] = row.getAttribute('data-status'); });
-		return data;
-	}
-
-	function summarize(record) {
-		var values = Object.values(record.records);
-		var present = values.filter(function (status) { return status === 'Present'; }).length;
-		return { present: present, absent: values.length - present, rate: percent(present, values.length) };
-	}
-
-	function filteredRecords() {
-		var className = byId('historyClass').value;
-		var from = byId('historyFrom').value;
-		var to = byId('historyTo').value;
-		return records.filter(function (record) {
-			return (!className || record.class === className) && (!from || record.date >= from) && (!to || record.date <= to);
+	var markAllPresent = document.getElementById('markAllPresent');
+	if (markAllPresent) {
+		markAllPresent.addEventListener('click', function () {
+			document.querySelectorAll('.mark-status').forEach(function (select) { select.value = 'present'; });
 		});
 	}
-
-	function renderHistory() {
-		byId('historyBody').innerHTML = filteredRecords().map(function (record) {
-			var summary = summarize(record);
-			return '<tr><td>' + record.date + '</td><td>' + record.class + '</td><td>' + summary.present + '</td><td>' + summary.absent + '</td><td>' + summary.rate + '</td><td><button type="button" class="btn btn-sm btn-outline-success edit-record" data-class="' + record.class + '" data-date="' + record.date + '"><i class="fa-solid fa-pen"></i> Edit</button></td></tr>';
-		}).join('');
-	}
-
-	function csvEscape(value) { return '"' + String(value).replace(/"/g, '""') + '"'; }
-	function exportCsv() {
-		var rows = [['School Name', schoolName], ['Report Type', byId('reportType').value], [], ['Date', 'Class', 'Registration Number', 'Student Name', 'Status', 'Attendance Percentage']];
-		filteredRecords().forEach(function (record) {
-			(studentsByClass[record.class] || []).forEach(function (student) { rows.push([record.date, record.class, student.reg_no, student.name, record.records[student.reg_no] || 'Absent', studentPercentage(record.class, student.reg_no)]); });
+	document.querySelectorAll('.edit-record').forEach(function (button) {
+		button.addEventListener('click', function () {
+			document.getElementById('attendanceRecordId').value = button.dataset.id || '';
+			document.getElementById('attendanceRecordStatus').value = button.dataset.status || 'present';
+			document.getElementById('attendanceRecordNotes').value = button.dataset.notes || '';
 		});
-		var csv = rows.map(function (row) { return row.map(csvEscape).join(','); }).join('\n');
-		var link = document.createElement('a');
-		link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-		link.download = 'Attendance_Report.csv';
-		document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href);
-	}
-
-	function exportPdf() {
-		var reportRows = [];
-		filteredRecords().forEach(function (record) {
-			(studentsByClass[record.class] || []).forEach(function (student) {
-				reportRows.push('<tr><td>' + record.date + '</td><td>' + record.class + '</td><td>' + student.reg_no + '</td><td>' + student.name + '</td><td>' + (record.records[student.reg_no] || 'Absent') + '</td><td>' + studentPercentage(record.class, student.reg_no) + '</td></tr>');
-			});
-		});
-		var dateRange = (byId('historyFrom').value || 'Start') + ' to ' + (byId('historyTo').value || 'End');
-		var win = window.open('', '_blank');
-		win.document.write('<html><head><title>Attendance Report</title><style>@page{size:A4;margin:14mm}body{font-family:Arial,sans-serif;color:#102a43}h2{text-transform:uppercase;margin-bottom:4px}p{margin:4px 0 14px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #999;padding:7px;text-align:left}th{background:#0f766e;color:#fff}</style></head><body><h2>' + schoolName + '</h2><p>Report Type: ' + byId('reportType').value + ' | Date Range: ' + dateRange + '</p><table><thead><tr><th>Date</th><th>Class</th><th>Registration Number</th><th>Student Name</th><th>Status</th><th>Attendance %</th></tr></thead><tbody>' + reportRows.join('') + '</tbody></table></body></html>');
-		win.document.close(); win.focus(); win.print();
-	}
-
-	document.addEventListener('DOMContentLoaded', function () {
-		renderHistory();
-		byId('loadAttendanceForm').addEventListener('submit', function (event) {
-			event.preventDefault(); selectedClass = byId('attendanceClass').value; selectedDate = byId('attendanceDate').value; editingKey = '';
-			if (!selectedClass || !selectedDate) { showNotice('error', 'Please select class and date before loading students.'); return; }
-			var existing = findRecord(selectedClass, selectedDate);
-			byId('dailyTitle').textContent = selectedClass + ' Attendance - ' + selectedDate;
-			byId('dailyTableCard').style.display = 'block'; byId('saveAttendanceBtn').style.display = 'inline-flex'; byId('updateAttendanceBtn').style.display = 'none';
-			renderStudents(selectedClass, selectedDate, existing || null);
-			showNotice(existing ? 'error' : 'success', existing ? 'Attendance already exists for this class and date. Use Edit from history to update it.' : 'Students loaded. Mark attendance and save.');
-		});
-
-		document.addEventListener('click', function (event) {
-			var statusButton = event.target.closest('.status-choice');
-			if (statusButton) { var row = statusButton.closest('tr'); row.setAttribute('data-status', statusButton.getAttribute('data-status')); row.querySelectorAll('.status-choice').forEach(function (btn) { btn.classList.remove('active'); }); statusButton.classList.add('active'); calculateDailySummary(); }
-			var editButton = event.target.closest('.edit-record');
-			if (editButton) { selectedClass = editButton.getAttribute('data-class'); selectedDate = editButton.getAttribute('data-date'); var existing = findRecord(selectedClass, selectedDate); editingKey = recordKey(selectedClass, selectedDate); byId('attendanceClass').value = selectedClass; byId('attendanceDate').value = selectedDate; byId('dailyTitle').textContent = 'Editing ' + selectedClass + ' Attendance - ' + selectedDate; byId('dailyTableCard').style.display = 'block'; byId('saveAttendanceBtn').style.display = 'none'; byId('updateAttendanceBtn').style.display = 'inline-flex'; renderStudents(selectedClass, selectedDate, existing); window.scrollTo({ top: byId('dailyTableCard').offsetTop - 20, behavior: 'smooth' }); }
-		});
-
-		byId('saveAttendanceBtn').addEventListener('click', function () {
-			if (findRecord(selectedClass, selectedDate)) { showNotice('error', 'Duplicate attendance prevented. This class and date already has a saved record.'); return; }
-			records.push({ date: selectedDate, class: selectedClass, records: currentDailyRecords() }); renderHistory(); showNotice('success', 'Attendance saved successfully.');
-		});
-		byId('updateAttendanceBtn').addEventListener('click', function () { var record = findRecord(selectedClass, selectedDate); if (record) { record.records = currentDailyRecords(); renderHistory(); calculateDailySummary(); showNotice('success', 'Attendance updated successfully.'); } });
-		['historyClass', 'historyFrom', 'historyTo'].forEach(function (id) { byId(id).addEventListener('change', renderHistory); });
-		byId('exportCsvBtn').addEventListener('click', exportCsv);
-		byId('exportPdfBtn').addEventListener('click', exportPdf);
 	});
-}());
+})();
 </script>
 
 <?php require_once('includes/footer.php'); ?>
-

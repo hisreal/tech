@@ -25,7 +25,7 @@ final class Config
             'root_path' => $rootPath,
             'app' => [
                 'name' => self::env('APP_NAME', 'School Management System'),
-                'url' => rtrim((string) self::env('APP_URL', 'http://localhost/tech'), '/'),
+                'url' => self::resolveAppUrl(),
                 'debug' => self::bool('APP_DEBUG', false),
                 'timezone' => $timezone,
             ],
@@ -60,6 +60,26 @@ final class Config
      *
      * @return array<string, mixed>
      */
+    /**
+     * Resolves the base application URL, preferring the actual request Host
+     * header (so links work from any device on the network — LAN IP, phone
+     * hotspot, etc. — without editing .env) while keeping the path prefix
+     * and CLI/no-request fallback from APP_URL.
+     */
+    private static function resolveAppUrl(): string
+    {
+        $configured = rtrim((string) self::env('APP_URL', 'http://localhost/tech'), '/');
+
+        if (empty($_SERVER['HTTP_HOST'])) {
+            return $configured;
+        }
+
+        $path = (string) (parse_url($configured, PHP_URL_PATH) ?? '');
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+
+        return rtrim($scheme . '://' . $_SERVER['HTTP_HOST'] . $path, '/');
+    }
+
     private static function loadDatabaseConfig(string $rootPath): array
     {
         $configPath = $rootPath . '/app/Config/database.php';

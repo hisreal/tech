@@ -1,33 +1,74 @@
 <?php require_once('includes/header.php'); ?>
 
 <?php
-// Dashboard placeholder data. Replace these arrays with database queries when backend integration is ready.
+
+use App\Services\AcademicService;
+use App\Services\AttendanceService;
+use App\Services\AuditLogService;
+use App\Services\ResultService;
+use App\Services\TeacherService;
+
+$teacherService = new TeacherService();
+$academicService = new AcademicService();
+$currentUser = sms_current_user();
+$teacherId = $teacherService->teacherIdForUser((int) $currentUser['id']);
+$staff = $teacherId ? $teacherService->find($teacherId) : null;
+
+$sessions = $academicService->listSessions(['status' => 'active'], 1, 1);
+$currentSessionName = $sessions['data'][0]['name'] ?? 'Not set';
+$terms = $academicService->listTerms(['status' => 'active'], 1, 1);
+$currentTermName = $terms['data'][0]['name'] ?? 'Not set';
+
 $teacher = [
-	'profile_picture' => '../assets/img/avatar/avatar-21.jpg',
-	'full_name' => 'Mr. Adewale Olumide Johnson',
-	'staff_id' => 'TCH001',
-	'department' => 'Science',
-	'academic_session' => '2025/2026',
-	'term' => 'First Term'
+	'profile_picture' => $staff && !empty($staff['passport_path']) ? '../' . ltrim((string) $staff['passport_path'], './') : '../assets/img/avatar/avatar-21.jpg',
+	'full_name' => $staff ? trim($staff['first_name'] . ' ' . $staff['last_name']) : (string) ($currentUser['full_name'] ?? $currentUser['username']),
+	'staff_id' => $staff['staff_no'] ?? 'Not set',
+	'department' => $staff['department_name'] ?? 'Not assigned',
+	'academic_session' => $currentSessionName,
+	'term' => $currentTermName,
 ];
 
-$assignedClasses = ['JSS 1A', 'JSS 2B', 'SS 1 Science', 'SS 2 Science'];
-$subjects = ['Mathematics', 'Physics', 'Computer Science'];
-$totalStudents = 120;
+$assignedClasses = $staff ? array_column($staff['classes'], 'name') : [];
+$subjects = $staff ? array_column($staff['subjects'], 'name') : [];
+$totalStudents = $teacherId ? $teacherService->totalStudentsForTeacher($teacherId) : 0;
+
+$resultService = new ResultService();
+$draftBatches = $teacherId ? $resultService->listBatches(['teacher_id' => $teacherId, 'status' => 'draft'], 1, 1)['meta']['total'] : 0;
+
+$attendanceService = new AttendanceService();
+$today = date('Y-m-d');
+$classesMissingAttendance = 0;
+if ($staff) {
+	foreach ($staff['classes'] as $class) {
+		$marks = $attendanceService->existingStudentMarksForDate((int) $class['class_id'], (int) $class['id'], $today);
+		if (!$marks) {
+			$classesMissingAttendance++;
+		}
+	}
+}
+
 $pendingTasks = [
-	['label' => 'Results to Submit', 'count' => 2, 'icon' => 'fa-file-pen'],
-	['label' => 'Attendance Pending', 'count' => 5, 'icon' => 'fa-calendar-xmark']
+	['label' => 'Results to Submit', 'count' => $draftBatches, 'icon' => 'fa-file-pen'],
+	['label' => 'Attendance Pending', 'count' => $classesMissingAttendance, 'icon' => 'fa-calendar-xmark'],
 ];
-$recentActivities = [
-	'Submitted Mathematics results',
-	'Marked SS2 attendance',
-	'Created Physics CBT questions'
-];
-$upcomingTasks = [
-	'Submit JSS2 results',
-	'Complete attendance for SS1',
-	'Prepare CBT questions'
-];
+
+$auditLogService = new AuditLogService();
+$recentLogs = $teacherId ? $auditLogService->list(['actor_user_id' => (int) $currentUser['id']], 1, 5)['data'] : [];
+$recentActivities = array_map(static fn (array $row): string => $row['description'], $recentLogs);
+if (!$recentActivities) {
+	$recentActivities = ['No recent activity recorded yet.'];
+}
+
+$upcomingTasks = [];
+if ($draftBatches > 0) {
+	$upcomingTasks[] = "Submit {$draftBatches} pending result batch(es)";
+}
+if ($classesMissingAttendance > 0) {
+	$upcomingTasks[] = "Mark today's attendance for {$classesMissingAttendance} class(es)";
+}
+if (!$upcomingTasks) {
+	$upcomingTasks[] = 'No pending academic tasks right now.';
+}
 ?>
 
 <style>
@@ -271,12 +312,12 @@ $upcomingTasks = [
 		<div class="row align-items-center row-gap-4">
 			<div class="col-lg-8">
 				<div class="d-flex align-items-center flex-wrap flex-sm-nowrap gap-3">
-					<span class="teacher-avatar"><img src="<?php echo $teacher['profile_picture']; ?>" alt="Teacher profile picture"></span>
+					<span class="teacher-avatar"><img src="<?php echo sms_e($teacher['profile_picture']); ?>" alt="Teacher profile picture"></span>
 					<div>
 						<span class="welcome-chip"><i class="fa-solid fa-chalkboard-user"></i> Teacher Dashboard</span>
-						<h3>Welcome back, <?php echo $teacher['full_name']; ?></h3>
-						<p class="welcome-meta mb-1">Staff ID: <?php echo $teacher['staff_id']; ?></p>
-						<p class="welcome-meta mb-0">Department: <?php echo $teacher['department']; ?> | Session: <?php echo $teacher['academic_session']; ?> | <?php echo $teacher['term']; ?></p>
+						<h3>Welcome back, <?php echo sms_e($teacher['full_name']); ?></h3>
+						<p class="welcome-meta mb-1">Staff ID: <?php echo sms_e($teacher['staff_id']); ?></p>
+						<p class="welcome-meta mb-0">Department: <?php echo sms_e($teacher['department']); ?> | Session: <?php echo sms_e($teacher['academic_session']); ?> | <?php echo sms_e($teacher['term']); ?></p>
 					</div>
 				</div>
 			</div>
@@ -292,14 +333,14 @@ $upcomingTasks = [
 			<div class="summary-card">
 				<div class="d-flex align-items-center justify-content-between"><h6>Assigned Classes</h6><span class="summary-icon"><i class="fa-solid fa-school"></i></span></div>
 				<div class="summary-count"><?php echo count($assignedClasses); ?> <span>Classes</span></div>
-				<div class="dashboard-tag-list"><?php foreach ($assignedClasses as $class): ?><span class="dashboard-tag"><?php echo $class; ?></span><?php endforeach; ?></div>
+				<div class="dashboard-tag-list"><?php foreach ($assignedClasses as $class): ?><span class="dashboard-tag"><?php echo sms_e($class); ?></span><?php endforeach; ?></div>
 			</div>
 		</div>
 		<div class="col-md-6 col-xl-3">
 			<div class="summary-card">
 				<div class="d-flex align-items-center justify-content-between"><h6>Subjects</h6><span class="summary-icon blue"><i class="fa-solid fa-book-open-reader"></i></span></div>
 				<div class="summary-count"><?php echo count($subjects); ?> <span>Subjects</span></div>
-				<div class="dashboard-tag-list"><?php foreach ($subjects as $subject): ?><span class="dashboard-tag"><?php echo $subject; ?></span><?php endforeach; ?></div>
+				<div class="dashboard-tag-list"><?php foreach ($subjects as $subject): ?><span class="dashboard-tag"><?php echo sms_e($subject); ?></span><?php endforeach; ?></div>
 			</div>
 		</div>
 		<div class="col-md-6 col-xl-3">
@@ -313,7 +354,7 @@ $upcomingTasks = [
 			<div class="summary-card">
 				<div class="d-flex align-items-center justify-content-between"><h6>Pending Tasks</h6><span class="summary-icon danger"><i class="fa-solid fa-list-check"></i></span></div>
 				<?php foreach ($pendingTasks as $task): ?>
-					<div class="pending-line"><span><i class="fa-solid <?php echo $task['icon']; ?> me-2"></i><?php echo $task['label']; ?></span><strong><?php echo $task['count']; ?></strong></div>
+					<div class="pending-line"><span><i class="fa-solid <?php echo sms_e($task['icon']); ?> me-2"></i><?php echo sms_e($task['label']); ?></span><strong><?php echo (int) $task['count']; ?></strong></div>
 				<?php endforeach; ?>
 			</div>
 		</div>
@@ -325,7 +366,7 @@ $upcomingTasks = [
 			<div class="activity-panel">
 				<h5><i class="fa-solid fa-clock-rotate-left me-2 text-success"></i>Recent Activities</h5>
 				<ul class="activity-list">
-					<?php foreach ($recentActivities as $activity): ?><li><span class="timeline-icon"><i class="fa-solid fa-check"></i></span><?php echo $activity; ?></li><?php endforeach; ?>
+					<?php foreach ($recentActivities as $activity): ?><li><span class="timeline-icon"><i class="fa-solid fa-check"></i></span><?php echo sms_e($activity); ?></li><?php endforeach; ?>
 				</ul>
 			</div>
 		</div>
@@ -333,7 +374,7 @@ $upcomingTasks = [
 			<div class="activity-panel">
 				<h5><i class="fa-solid fa-calendar-check me-2 text-primary"></i>Upcoming Tasks</h5>
 				<ul class="activity-list">
-					<?php foreach ($upcomingTasks as $task): ?><li><span class="timeline-icon upcoming"><i class="fa-solid fa-arrow-right"></i></span><?php echo $task; ?></li><?php endforeach; ?>
+					<?php foreach ($upcomingTasks as $task): ?><li><span class="timeline-icon upcoming"><i class="fa-solid fa-arrow-right"></i></span><?php echo sms_e($task); ?></li><?php endforeach; ?>
 				</ul>
 			</div>
 		</div>

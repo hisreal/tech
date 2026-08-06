@@ -4,11 +4,35 @@ declare(strict_types=1);
 
 namespace App\Helpers;
 
+use App\Core\Database;
+
 /**
  * Builds pagination metadata and Bootstrap-compatible pagination links.
  */
 final class Paginator
 {
+    /**
+     * Paginates an arbitrary SELECT query (filtered, joined, etc.) by
+     * wrapping it in a COUNT query and appending LIMIT/OFFSET. Use this
+     * instead of BaseModel::paginate() whenever a listing needs search,
+     * filters, or joins rather than a plain "all rows in a table" query.
+     *
+     * @param array<string|int, mixed> $params Named parameters used by $sql.
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, int>}
+     */
+    public static function paginateQuery(Database $db, string $sql, array $params, int $page = 1, int $perPage = 15): array
+    {
+        $total = (int) ($db->fetchOne('SELECT COUNT(*) AS aggregate FROM (' . $sql . ') AS sms_paginated', $params)['aggregate'] ?? 0);
+        $meta = self::make($total, $page, $perPage);
+
+        $data = $db->fetchAll(
+            $sql . ' LIMIT :sms_limit OFFSET :sms_offset',
+            array_merge($params, ['sms_limit' => $meta['per_page'], 'sms_offset' => $meta['offset']])
+        );
+
+        return ['data' => $data, 'meta' => $meta];
+    }
+
     /**
      * Builds pagination state from counts.
      *

@@ -8,13 +8,18 @@ use App\Core\Application;
 use App\Core\Database;
 use App\Core\Session;
 use App\Helpers\Security;
+use App\Traits\Auditable;
 
 /**
  * Shared authentication and authorization service for every school portal role.
  */
 final class AuthService
 {
+    use Auditable;
+
     private const REMEMBER_COOKIE = 'sms_remember';
+    private const MAX_FAILED_ATTEMPTS = 5;
+    private const LOCKOUT_WINDOW_MINUTES = 15;
 
     /** @var array<string, string> */
     private const ROLE_DASHBOARDS = [
@@ -52,14 +57,24 @@ final class AuthService
             return ['success' => false, 'message' => 'Please correct the highlighted errors.', 'errors' => $errors];
         }
 
+        if ($this->isLockedOut($identifier)) {
+            Logger::security('Login blocked by lockout.', ['identifier' => $identifier, 'portal' => $portal]);
+            $this->audit(null, 'auth', 'auth.login.locked_out', 'users', null, null, ['identifier' => $identifier, 'portal' => $portal], null, 'failed');
+            return ['success' => false, 'message' => sprintf('Too many failed attempts. Please try again in %d minutes.', self::LOCKOUT_WINDOW_MINUTES)];
+        }
+
         $user = $this->findUserByIdentifier($identifier);
 
         if ($user === null || !password_verify($password, (string) $user['password_hash'])) {
+            $this->recordLoginAttempt($identifier, isset($user['id']) ? (int) $user['id'] : null, false, 'invalid_credentials');
             Logger::security('Failed login attempt.', ['identifier' => $identifier, 'portal' => $portal]);
+            $this->audit(null, 'auth', 'auth.login.failed', 'users', isset($user['id']) ? (int) $user['id'] : null, null, ['identifier' => $identifier, 'portal' => $portal, 'reason' => 'invalid_credentials'], null, 'failed');
             return ['success' => false, 'message' => 'Invalid username/email or password.'];
         }
 
         if (($user['status'] ?? '') !== 'active') {
+            $this->recordLoginAttempt($identifier, (int) $user['id'], false, 'inactive_account');
+            $this->audit(null, 'auth', 'auth.login.failed', 'users', (int) $user['id'], null, ['identifier' => $identifier, 'portal' => $portal, 'reason' => 'inactive_account'], null, 'failed');
             return ['success' => false, 'message' => 'This account is not active. Please contact the administrator.'];
         }
 
@@ -67,9 +82,13 @@ final class AuthService
         $allowedRoles = self::PORTAL_ROLES[$portal] ?? [];
 
         if (array_intersect($roles, $allowedRoles) === []) {
+            $this->recordLoginAttempt($identifier, (int) $user['id'], false, 'wrong_portal');
             Logger::security('Blocked cross-portal login.', ['user_id' => $user['id'], 'portal' => $portal, 'roles' => $roles]);
+            $this->audit(null, 'auth', 'auth.login.failed', 'users', (int) $user['id'], null, ['identifier' => $identifier, 'portal' => $portal, 'reason' => 'wrong_portal'], null, 'failed');
             return ['success' => false, 'message' => 'Your account is not allowed to access this portal.'];
         }
+
+        $this->recordLoginAttempt($identifier, (int) $user['id'], true, null);
 
         if (password_needs_rehash((string) $user['password_hash'], PASSWORD_DEFAULT)) {
             $this->database->execute(
@@ -88,6 +107,7 @@ final class AuthService
         }
 
         Logger::login((int) $user['id'], $_SERVER['REMOTE_ADDR'] ?? '');
+        $this->audit(['id' => (int) $user['id']], 'auth', 'auth.login.success', 'users', (int) $user['id'], null, ['portal' => $portal, 'remember' => $remember]);
 
         return [
             'success' => true,
@@ -105,8 +125,10 @@ final class AuthService
 
         if ($user !== null) {
             Logger::logout((int) $user['id']);
+            $this->audit(['id' => (int) $user['id']], 'auth', 'auth.logout', 'users', (int) $user['id'], null, null);
         }
 
+        $this->revokeCurrentSession();
         $this->forgetRememberToken();
         Session::destroy();
     }
@@ -157,13 +179,16 @@ final class AuthService
     }
 
     /**
-     * Generates and stores a password reset token.
+     * Generates a password reset token and emails the reset link. Always
+     * returns the same generic message regardless of whether the identifier
+     * matched an account, to avoid user enumeration.
      *
-     * @return array{success: bool, message: string, token?: string}
+     * @return array{success: bool, message: string}
      */
-    public function createPasswordReset(string $identifier): array
+    public function createPasswordReset(string $identifier, string $portal = 'admin'): array
     {
         $identifier = trim($identifier);
+        $genericMessage = 'If an account matches those details, a password reset link has been sent to the account email.';
 
         if ($identifier === '') {
             return ['success' => false, 'message' => 'Enter your username or email address.'];
@@ -172,7 +197,7 @@ final class AuthService
         $user = $this->findUserByIdentifier($identifier);
 
         if ($user === null) {
-            return ['success' => false, 'message' => 'No account was found for those details.'];
+            return ['success' => true, 'message' => $genericMessage];
         }
 
         $token = Security::randomString(64);
@@ -181,9 +206,116 @@ final class AuthService
             ['user_id' => $user['id'], 'token_hash' => hash('sha256', $token)]
         );
 
-        Logger::security('Password reset token generated.', ['user_id' => $user['id']]);
+        $email = (string) ($user['email'] ?? '');
 
-        return ['success' => true, 'message' => 'Password reset request created. Email delivery will be connected later.', 'token' => $token];
+        if ($email !== '') {
+            $resetUrl = $this->baseUrl('reset-password.php') . '?token=' . urlencode($token) . '&portal=' . urlencode($portal);
+            Mailer::send(
+                $email,
+                'Password reset request',
+                "We received a request to reset your password.\n\nReset your password: {$resetUrl}\n\nThis link expires in 1 hour. If you did not request this, you can ignore this email."
+            );
+        }
+
+        Logger::security('Password reset token generated.', ['user_id' => $user['id']]);
+        $this->audit(null, 'auth', 'auth.password_reset.requested', 'users', (int) $user['id'], null, ['portal' => $portal]);
+
+        return ['success' => true, 'message' => $genericMessage];
+    }
+
+    /**
+     * Completes a password reset from a token minted by createPasswordReset().
+     *
+     * @return array{success: bool, message: string, errors?: array<string, string>, portal?: string}
+     */
+    public function resetPassword(string $token, string $password, string $passwordConfirmation): array
+    {
+        if ($token === '') {
+            return ['success' => false, 'message' => 'This reset link is invalid.'];
+        }
+
+        $errors = [];
+
+        if (!Security::isStrongPassword($password)) {
+            $errors['password'] = Security::passwordPolicyMessage();
+        } elseif ($password !== $passwordConfirmation) {
+            $errors['password_confirmation'] = 'Password confirmation does not match.';
+        }
+
+        if ($errors !== []) {
+            return ['success' => false, 'message' => 'Please correct the highlighted fields.', 'errors' => $errors];
+        }
+
+        $reset = $this->database->fetchOne(
+            'SELECT * FROM password_resets WHERE token_hash = :token_hash AND used_at IS NULL AND expires_at > NOW() LIMIT 1',
+            ['token_hash' => hash('sha256', $token)]
+        );
+
+        if ($reset === null) {
+            return ['success' => false, 'message' => 'This reset link is invalid or has expired. Please request a new one.'];
+        }
+
+        $userId = (int) $reset['user_id'];
+        $user = $this->database->fetchOne('SELECT id, username, status FROM users WHERE id = :id LIMIT 1', ['id' => $userId]);
+
+        if ($user === null || ($user['status'] ?? '') !== 'active') {
+            return ['success' => false, 'message' => 'This account is not available for password reset.'];
+        }
+
+        $this->database->beginTransaction();
+
+        try {
+            $this->database->execute(
+                'UPDATE users SET password_hash = :hash, password_must_change = 0, temp_password_created_at = NULL WHERE id = :id',
+                ['hash' => password_hash($password, PASSWORD_DEFAULT), 'id' => $userId]
+            );
+            $this->database->execute('UPDATE password_resets SET used_at = NOW() WHERE id = :id', ['id' => $reset['id']]);
+            $this->database->execute('DELETE FROM remember_tokens WHERE user_id = :user_id', ['user_id' => $userId]);
+            $this->database->commit();
+        } catch (\Throwable $throwable) {
+            $this->database->rollBack();
+            Logger::exception($throwable);
+            return ['success' => false, 'message' => 'Unable to reset the password right now. Please try again.'];
+        }
+
+        Logger::security('Password reset completed.', ['user_id' => $userId]);
+        $this->audit(['id' => $userId], 'auth', 'auth.password_reset.completed', 'users', $userId, null, null);
+
+        $roles = $this->rolesForUser($userId);
+
+        return ['success' => true, 'message' => 'Your password has been reset. Please sign in.', 'portal' => $this->portalForRoles($roles)];
+    }
+
+    /**
+     * Returns true when the identifier has too many recent failed attempts.
+     */
+    private function isLockedOut(string $identifier): bool
+    {
+        $cutoff = date('Y-m-d H:i:s', time() - (self::LOCKOUT_WINDOW_MINUTES * 60));
+        $row = $this->database->fetchOne(
+            'SELECT COUNT(*) AS attempts FROM login_attempts WHERE username = :username AND was_successful = 0 AND attempted_at > :cutoff',
+            ['username' => $identifier, 'cutoff' => $cutoff]
+        );
+
+        return (int) ($row['attempts'] ?? 0) >= self::MAX_FAILED_ATTEMPTS;
+    }
+
+    /**
+     * Records a login attempt for lockout tracking and audit history.
+     */
+    private function recordLoginAttempt(string $identifier, ?int $userId, bool $success, ?string $reason): void
+    {
+        $this->database->execute(
+            'INSERT INTO login_attempts (username, user_id, ip_address, user_agent, was_successful, failure_reason) VALUES (:username, :user_id, :ip, :agent, :success, :reason)',
+            [
+                'username' => $identifier,
+                'user_id' => $userId,
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+                'agent' => substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
+                'success' => $success ? 1 : 0,
+                'reason' => $reason,
+            ]
+        );
     }
 
     /**
@@ -231,6 +363,7 @@ final class AuthService
     private function loginUser(array $user, array $roles): void
     {
         Session::regenerate();
+        Session::remove('_csrf_token');
         $primaryRole = $this->primaryRole($roles);
         $payload = [
             'id' => (int) $user['id'],
@@ -247,6 +380,55 @@ final class AuthService
         Session::set('roles', $roles);
         Session::set('permissions', $this->permissionsForRoles($roles));
         Session::set('expires_at', time() + ((int) Application::instance()->config('session.lifetime', 120) * 60));
+
+        $this->recordUserSession((int) $user['id']);
+    }
+
+    /**
+     * Records or refreshes this login's row in user_sessions for session
+     * management/history. Keyed by a hash of the PHP session ID so a
+     * concurrent request never collides on the primary key.
+     */
+    private function recordUserSession(int $userId): void
+    {
+        $sessionId = session_id();
+
+        if (!$sessionId) {
+            return;
+        }
+
+        $lifetime = (int) Application::instance()->config('session.lifetime', 120);
+        $expiresAt = date('Y-m-d H:i:s', time() + ($lifetime * 60));
+
+        $this->database->execute(
+            'INSERT INTO user_sessions (user_id, session_token_hash, ip_address, user_agent, expires_at)
+             VALUES (:user_id, :hash, :ip, :agent, :expires_at)
+             ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), ip_address = VALUES(ip_address), user_agent = VALUES(user_agent), expires_at = VALUES(expires_at), revoked_at = NULL',
+            [
+                'user_id' => $userId,
+                'hash' => hash('sha256', $sessionId),
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+                'agent' => substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
+                'expires_at' => $expiresAt,
+            ]
+        );
+    }
+
+    /**
+     * Marks this PHP session's user_sessions row as revoked on logout.
+     */
+    private function revokeCurrentSession(): void
+    {
+        $sessionId = session_id();
+
+        if (!$sessionId) {
+            return;
+        }
+
+        $this->database->execute(
+            'UPDATE user_sessions SET revoked_at = NOW() WHERE session_token_hash = :hash AND revoked_at IS NULL',
+            ['hash' => hash('sha256', $sessionId)]
+        );
     }
 
     /**
@@ -425,6 +607,23 @@ final class AuthService
         $role = $roles[0] ?? '';
 
         return $this->baseUrl(in_array($role, ['teacher', 'student', 'accountant'], true) ? $role . '/login.php' : 'login.php');
+    }
+
+    /**
+     * Returns the portal slug for a role set, for redirecting to the right
+     * login page after a password reset.
+     *
+     * @param array<int, string> $roles
+     */
+    private function portalForRoles(array $roles): string
+    {
+        if (array_intersect($roles, ['super-admin', 'admin']) !== []) {
+            return 'admin';
+        }
+
+        $role = $roles[0] ?? '';
+
+        return in_array($role, ['teacher', 'student', 'accountant'], true) ? $role : 'admin';
     }
 
     /**

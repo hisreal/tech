@@ -10,14 +10,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST' || !sms_verify_csrf($_POST[
     exit;
 }
 
-$result = sms_auth()->createPasswordReset((string) ($_POST['identifier'] ?? ''));
+$result = sms_auth()->createPasswordReset((string) ($_POST['identifier'] ?? ''), $portal);
 sms_flash_set($result['success'] ? 'success' : 'error', $result['message']);
-
-if ($result['success'] && isset($result['token'])) {
-    $_SESSION['_dev_reset_token'] = $result['token'];
-    header('Location: reset-password.php?token=' . urlencode($result['token']));
-    exit;
-}
 
 header('Location: ' . $fallback);
 exit;

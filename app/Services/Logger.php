@@ -59,6 +59,30 @@ final class Logger
         self::write('security', $message, $context);
     }
 
+    /** Logs a debug-level message. */
+    public static function debug(string $message, array $context = []): void
+    {
+        self::write('debug', $message, $context);
+    }
+
+    /** Logs an informational message. */
+    public static function info(string $message, array $context = []): void
+    {
+        self::write('info', $message, $context);
+    }
+
+    /** Logs a warning message. */
+    public static function warning(string $message, array $context = []): void
+    {
+        self::write('warning', $message, $context);
+    }
+
+    /** Logs an error message. */
+    public static function error(string $message, array $context = []): void
+    {
+        self::write('error', $message, $context);
+    }
+
     /** Logs an exception. */
     public static function exception(\Throwable $throwable): void
     {

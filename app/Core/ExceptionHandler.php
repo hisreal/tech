@@ -14,8 +14,17 @@ final class ExceptionHandler
     /** @var array<string, mixed> */
     private static array $config = [];
 
+    /** @var array<int, int> PHP error levels severe enough to treat as a thrown exception. */
+    private const FATAL_ERROR_LEVELS = [E_USER_ERROR, E_RECOVERABLE_ERROR];
+
+    /** @var array<int, int> PHP error levels only catchable via a shutdown function. */
+    private const SHUTDOWN_FATAL_LEVELS = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR];
+
     /**
-     * Registers PHP error and exception handlers.
+     * Registers PHP error, exception, and fatal-shutdown handlers, mirroring
+     * Laravel's Handler triad. Non-fatal levels (warnings/notices/deprecated)
+     * are logged, not thrown, so existing legacy pages that already tolerate
+     * them keep rendering exactly as before.
      *
      * @param array<string, mixed> $config
      */
@@ -23,7 +32,33 @@ final class ExceptionHandler
     {
         self::$config = $config;
 
+        set_error_handler(static function (int $level, string $message, string $file = '', int $line = 0): bool {
+            if (!(error_reporting() & $level)) {
+                return false;
+            }
+
+            if (in_array($level, self::FATAL_ERROR_LEVELS, true)) {
+                throw new \ErrorException($message, 0, $level, $file, $line);
+            }
+
+            Logger::warning($message, ['file' => $file, 'line' => $line, 'level' => $level]);
+
+            return true;
+        });
+
         set_exception_handler(static function (\Throwable $throwable): void {
+            Logger::exception($throwable);
+            self::renderThrowable($throwable)->send();
+        });
+
+        register_shutdown_function(static function (): void {
+            $error = error_get_last();
+
+            if ($error === null || !in_array($error['type'], self::SHUTDOWN_FATAL_LEVELS, true)) {
+                return;
+            }
+
+            $throwable = new \ErrorException($error['message'], 0, $error['type'], $error['file'], $error['line']);
             Logger::exception($throwable);
             self::renderThrowable($throwable)->send();
         });
@@ -53,6 +88,14 @@ final class ExceptionHandler
      */
     private static function renderThrowable(\Throwable $throwable): Response
     {
+        if ($throwable instanceof AuthorizationException) {
+            return self::renderStatus(403, $throwable->getMessage());
+        }
+
+        if ($throwable instanceof ModelNotFoundException) {
+            return self::renderStatus(404);
+        }
+
         $debug = (bool) (self::$config['app']['debug'] ?? false);
 
         if ($debug) {

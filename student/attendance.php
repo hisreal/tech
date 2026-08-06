@@ -1,6 +1,33 @@
 <?php require_once('includes/header.php'); ?>
 
+<?php
 
+use App\Services\AttendanceService;
+
+$attendanceService = new AttendanceService();
+$currentUser = sms_current_user();
+$studentId = $attendanceService->studentIdForUser((int) $currentUser['id']);
+
+$records = [];
+if ($studentId) {
+	$result = $attendanceService->listStudentAttendance(['student_id' => $studentId], 1, 1000);
+	$records = $result['data'] ?? [];
+}
+
+function studentAttValue($value)
+{
+	return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+}
+?>
+
+<style>
+.attendance-page .status-icon.late,
+.attendance-page .status-icon.excused,
+.attendance-page .status-icon.leave { background: rgba(245, 158, 11, .13); color: #b45309; }
+.attendance-page .remarks-badge.late,
+.attendance-page .remarks-badge.excused,
+.attendance-page .remarks-badge.leave { background: rgba(245, 158, 11, .13); color: #b45309; }
+</style>
 
 <div class="row attendance-page">
 	<div class="col-lg-12 mx-auto">
@@ -70,6 +97,9 @@
 				<button type="button" class="filter-btn active" data-filter="all">All</button>
 				<button type="button" class="filter-btn" data-filter="present">Present</button>
 				<button type="button" class="filter-btn" data-filter="absent">Absent</button>
+				<button type="button" class="filter-btn" data-filter="late">Late</button>
+				<button type="button" class="filter-btn" data-filter="excused">Excused</button>
+				<button type="button" class="filter-btn" data-filter="leave">Leave</button>
 			</div>
 			<div class="attendance-table-wrap mt-3">
 				<table class="table attendance-table align-middle" id="attendanceTable">
@@ -82,28 +112,22 @@
 						</tr>
 					</thead>
 					<tbody>
-						<tr data-date="2026-06-30" data-status="present"><td>30/06/2026</td><td>Tuesday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-29" data-status="present"><td>29/06/2026</td><td>Monday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-26" data-status="absent"><td>26/06/2026</td><td>Friday</td><td><span class="status-icon absent" data-bs-toggle="tooltip" title="Absent"><i class="fa-solid fa-times"></i></span></td><td><span class="remarks-badge absent">Absent</span></td></tr>
-						<tr data-date="2026-06-25" data-status="present"><td>25/06/2026</td><td>Thursday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-24" data-status="present"><td>24/06/2026</td><td>Wednesday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-23" data-status="present"><td>23/06/2026</td><td>Tuesday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-22" data-status="absent"><td>22/06/2026</td><td>Monday</td><td><span class="status-icon absent" data-bs-toggle="tooltip" title="Absent"><i class="fa-solid fa-times"></i></span></td><td><span class="remarks-badge absent">Absent</span></td></tr>
-						<tr data-date="2026-06-19" data-status="present"><td>19/06/2026</td><td>Friday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-18" data-status="present"><td>18/06/2026</td><td>Thursday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-17" data-status="present"><td>17/06/2026</td><td>Wednesday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-16" data-status="present"><td>16/06/2026</td><td>Tuesday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-15" data-status="present"><td>15/06/2026</td><td>Monday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-12" data-status="absent"><td>12/06/2026</td><td>Friday</td><td><span class="status-icon absent" data-bs-toggle="tooltip" title="Absent"><i class="fa-solid fa-times"></i></span></td><td><span class="remarks-badge absent">Absent</span></td></tr>
-						<tr data-date="2026-06-11" data-status="present"><td>11/06/2026</td><td>Thursday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-10" data-status="present"><td>10/06/2026</td><td>Wednesday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-09" data-status="present"><td>09/06/2026</td><td>Tuesday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-08" data-status="present"><td>08/06/2026</td><td>Monday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-05" data-status="absent"><td>05/06/2026</td><td>Friday</td><td><span class="status-icon absent" data-bs-toggle="tooltip" title="Absent"><i class="fa-solid fa-times"></i></span></td><td><span class="remarks-badge absent">Absent</span></td></tr>
-						<tr data-date="2026-06-04" data-status="present"><td>04/06/2026</td><td>Thursday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-03" data-status="present"><td>03/06/2026</td><td>Wednesday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-02" data-status="present"><td>02/06/2026</td><td>Tuesday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
-						<tr data-date="2026-06-01" data-status="present"><td>01/06/2026</td><td>Monday</td><td><span class="status-icon present" data-bs-toggle="tooltip" title="Present"><i class="fa-solid fa-check"></i></span></td><td><span class="remarks-badge present">Present</span></td></tr>
+						<?php foreach ($records as $record): ?>
+							<?php
+							$status = (string) $record['status'];
+							$date = (string) $record['attendance_date'];
+							$displayDate = date('d/m/Y', strtotime($date));
+							$dayName = date('l', strtotime($date));
+							$notes = trim((string) ($record['notes'] ?? ''));
+							$remarks = $notes !== '' ? $notes : ucfirst($status);
+							?>
+							<tr data-date="<?php echo studentAttValue($date); ?>" data-status="<?php echo studentAttValue($status); ?>">
+								<td><?php echo studentAttValue($displayDate); ?></td>
+								<td><?php echo studentAttValue($dayName); ?></td>
+								<td><span class="status-icon <?php echo studentAttValue($status); ?>" data-bs-toggle="tooltip" title="<?php echo studentAttValue(ucfirst($status)); ?>"><i class="fa-solid <?php echo $status === 'present' ? 'fa-check' : ($status === 'absent' ? 'fa-times' : 'fa-clock'); ?>"></i></span></td>
+								<td><span class="remarks-badge <?php echo studentAttValue($status); ?>"><?php echo studentAttValue($remarks); ?></span></td>
+							</tr>
+						<?php endforeach; ?>
 					</tbody>
 				</table>
 				<div class="empty-state text-center" id="attendanceEmptyState">
@@ -137,7 +161,7 @@
 			return total ? ((present / total) * 100).toFixed(1) : '0.0';
 		}
 
-		function setSummary(rows, updateProfile) {
+		function setSummary(rows) {
 			const total = rows.length;
 			const present = rows.filter(row => row.dataset.status === 'present').length;
 			const absent = rows.filter(row => row.dataset.status === 'absent').length;
@@ -147,11 +171,6 @@
 			document.getElementById('presentDays').textContent = present;
 			document.getElementById('absentDays').textContent = absent;
 			document.getElementById('attendanceRate').textContent = rate + '%';
-
-			if (updateProfile) {
-				document.getElementById('profileAttendanceRate').textContent = rate + '%';
-				document.getElementById('profileRateRing').style.setProperty('--rate', rate);
-			}
 		}
 
 		function sortRows() {
@@ -181,7 +200,7 @@
 			});
 
 			emptyState.style.display = visibleRows.length ? 'none' : 'block';
-			setSummary(visibleRows, false);
+			setSummary(visibleRows);
 		}
 
 		filterButtons.forEach(button => {
@@ -204,7 +223,6 @@
 		}
 
 		sortRows();
-		setSummary(allRows, true);
 		applyControls();
 	});
 </script>

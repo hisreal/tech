@@ -1,63 +1,108 @@
 <?php require_once('includes/header.php'); ?>
 
 <?php
-// Accountant dashboard placeholder data. Replace these arrays with finance database queries when backend integration is ready.
+
+use App\Services\AccountantService;
+use App\Services\FinanceService;
+use App\Services\StudentService;
+use App\Services\TeacherService;
+
+$financeService = new FinanceService();
+$accountantService = new AccountantService();
+$currentUser = sms_current_user();
+$staff = $accountantService->findByUserId((int) $currentUser['id']);
+
 $accountant = [
-	'profile_picture' => '../assets/img/avatar/avatar-19.jpg',
-	'full_name' => 'John Ibrahim',
-	'staff_id' => 'ACC001'
+	'profile_picture' => $staff && !empty($staff['passport_path']) ? '../' . ltrim((string) $staff['passport_path'], './') : '../assets/img/avatar/avatar-19.jpg',
+	'full_name' => $staff ? trim($staff['first_name'] . ' ' . $staff['last_name']) : (string) ($currentUser['full_name'] ?? $currentUser['username']),
+	'staff_id' => $staff['staff_no'] ?? 'Not set',
 ];
 
-$todayRevenue = 450000;
-$outstandingFees = 2350000;
-$todayExpenses = 120000;
+$today = date('Y-m-d');
+$todaySummary = $financeService->summary($today, $today);
+$monthSummary = $financeService->summary(date('Y-m-01'), date('Y-m-d'));
+
+$todayRevenue = $todaySummary['revenue'];
+$todayExpenses = $todaySummary['expenses'];
 $netIncome = $todayRevenue - $todayExpenses;
-$studentsPaid = 540;
-$outstandingStudents = 132;
-$monthlyRevenueTotal = 8450000;
-$monthlyExpensesTotal = 2150000;
+$outstandingFees = $monthSummary['outstanding'];
+$studentsPaid = $monthSummary['students_paid'];
+$outstandingStudents = $monthSummary['students_outstanding'];
+$monthlyRevenueTotal = $monthSummary['revenue'];
+$monthlyExpensesTotal = $monthSummary['expenses'];
+
+$transactionsToday = (int) count($financeService->paymentHistory(['date_from' => $today, 'date_to' => $today], 1000));
 $footerStats = [
-	['label' => 'Total Students', 'value' => '650', 'icon' => 'fa-users'],
-	['label' => 'Teachers', 'value' => '45', 'icon' => 'fa-chalkboard-user'],
-	['label' => 'Staff', 'value' => '22', 'icon' => 'fa-user-tie'],
-	['label' => 'Transactions Today', 'value' => '65', 'icon' => 'fa-receipt']
+	['label' => 'Total Students', 'value' => number_format((new StudentService())->list([], 1, 1)['meta']['total']), 'icon' => 'fa-users'],
+	['label' => 'Teachers', 'value' => number_format((new TeacherService())->list([], 1, 1)['meta']['total']), 'icon' => 'fa-chalkboard-user'],
+	['label' => 'Staff', 'value' => number_format($accountantService->list([], 1, 1)['meta']['total']), 'icon' => 'fa-user-tie'],
+	['label' => 'Transactions Today', 'value' => number_format($transactionsToday), 'icon' => 'fa-receipt'],
 ];
 
-$monthlyRevenue = [920000, 760000, 815000, 690000, 880000, 745000, 945000, 710000, 805000, 930000, 780000, 1010000];
-$monthlyExpenses = [210000, 180000, 240000, 165000, 225000, 190000, 260000, 175000, 210000, 235000, 205000, 255000];
+$trend = $financeService->monthlyTrend((int) date('Y'));
+$monthlyRevenue = $trend['revenue'];
+$monthlyExpenses = $trend['expenses'];
 $months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-$recentPayments = [
-	['receipt' => 'RCP001', 'student' => 'Musa Ibrahim', 'class' => 'SS2', 'amount' => 85000, 'method' => 'Bank Transfer', 'date' => '06/07/2026', 'status' => 'Paid'],
-	['receipt' => 'RCP002', 'student' => 'Aisha Bello', 'class' => 'JSS 1A', 'amount' => 65000, 'method' => 'POS', 'date' => '06/07/2026', 'status' => 'Paid'],
-	['receipt' => 'RCP003', 'student' => 'Daniel Okafor', 'class' => 'SS1 Science', 'amount' => 40000, 'method' => 'Cash', 'date' => '06/07/2026', 'status' => 'Pending'],
-	['receipt' => 'RCP004', 'student' => 'Maryam Musa', 'class' => 'JSS 2B', 'amount' => 50000, 'method' => 'Bank Transfer', 'date' => '05/07/2026', 'status' => 'Failed']
-];
+$recentPayments = array_map(static function (array $p): array {
+	return [
+		'receipt' => $p['receipt_no'] ?? $p['transaction_no'],
+		'student' => trim($p['first_name'] . ' ' . $p['last_name']),
+		'class' => $p['class_name'] ?? '-',
+		'amount' => $p['amount'],
+		'method' => ucwords(str_replace('_', ' ', (string) $p['payment_method'])),
+		'date' => date('d/m/Y', strtotime((string) $p['payment_date'])),
+		'status' => ucfirst((string) $p['status']),
+	];
+}, array_slice($financeService->paymentHistory([], 500), 0, 4));
 
-$outstandingList = [
-	['student' => 'Samuel Adeyemi', 'class' => 'SS2 Science', 'total' => 120000, 'paid' => 70000],
-	['student' => 'Fatima Abdullahi', 'class' => 'JSS 3A', 'total' => 95000, 'paid' => 45000],
-	['student' => 'Joshua Martins', 'class' => 'SS1 Science', 'total' => 110000, 'paid' => 65000]
-];
+$outstandingList = array_map(static function (array $i): array {
+	return [
+		'student' => trim($i['first_name'] . ' ' . $i['last_name']),
+		'class' => $i['class_name'],
+		'total' => $i['total_amount'],
+		'paid' => $i['amount_paid'],
+	];
+}, array_slice($financeService->listOutstanding([], 200), 0, 3));
 
-$recentExpenses = [
-	['date' => '06/07/2026', 'category' => 'Electricity', 'description' => 'PHCN Bill', 'amount' => 45000],
-	['date' => '06/07/2026', 'category' => 'Maintenance', 'description' => 'Classroom furniture repair', 'amount' => 35000],
-	['date' => '05/07/2026', 'category' => 'Stationery', 'description' => 'Receipt booklet printing', 'amount' => 18000]
-];
+$recentExpenses = array_map(static function (array $e): array {
+	return [
+		'date' => date('d/m/Y', strtotime((string) $e['expense_date'])),
+		'category' => $e['category'],
+		'description' => $e['description'],
+		'amount' => $e['amount'],
+	];
+}, array_slice($financeService->listExpenses([], 200), 0, 3));
 
 $quickActions = [
-	['label' => 'Collect School Fees', 'icon' => 'fa-money-bill-transfer'],
-	['label' => 'Record Expense', 'icon' => 'fa-file-invoice-dollar'],
-	['label' => 'Generate Receipt', 'icon' => 'fa-receipt'],
-	['label' => 'View Outstanding Fees', 'icon' => 'fa-scale-unbalanced'],
-	['label' => 'Generate Financial Report', 'icon' => 'fa-chart-pie'],
-	['label' => 'Manage Fee Structure', 'icon' => 'fa-sliders'],
-	['label' => 'View Payroll', 'icon' => 'fa-users-gear']
+	['label' => 'Collect School Fees', 'icon' => 'fa-money-bill-transfer', 'href' => 'fee-collection.php'],
+	['label' => 'Record Expense', 'icon' => 'fa-file-invoice-dollar', 'href' => 'expense-management.php'],
+	['label' => 'Generate Receipt', 'icon' => 'fa-receipt', 'href' => 'receipt-management.php'],
+	['label' => 'View Outstanding Fees', 'icon' => 'fa-scale-unbalanced', 'href' => 'outstanding-fees.php'],
+	['label' => 'Generate Financial Report', 'icon' => 'fa-chart-pie', 'href' => 'financial-reports.php'],
+	['label' => 'Manage Fee Structure', 'icon' => 'fa-sliders', 'href' => 'fee-structure.php'],
+	['label' => 'View Payroll', 'icon' => 'fa-users-gear', 'href' => 'payslips.php'],
 ];
 
-$notifications = ['New payment received', 'Payroll ready for July', '25 students still owe fees', 'Monthly financial report available'];
-$calendarEvents = [6 => 'Fee Deadline', 15 => 'Salary Day', 28 => 'Report Due'];
+$notifications = [];
+if ($outstandingStudents > 0) {
+	$notifications[] = "{$outstandingStudents} student(s) still owe fees";
+}
+if ($transactionsToday > 0) {
+	$notifications[] = "{$transactionsToday} payment(s) received today";
+}
+if ($recentExpenses) {
+	$notifications[] = 'Latest expense: ' . $recentExpenses[0]['category'] . ' (' . moneyFormat($recentExpenses[0]['amount']) . ')';
+}
+if (!$notifications) {
+	$notifications[] = 'No new financial activity to report.';
+}
+
+$paymentDaysThisMonth = array_unique(array_map(
+	static fn (array $p): int => (int) date('j', strtotime((string) $p['payment_date'])),
+	array_filter($financeService->paymentHistory(['date_from' => date('Y-m-01'), 'date_to' => date('Y-m-d')], 1000), static fn (array $p): bool => date('Y-m', strtotime((string) $p['payment_date'])) === date('Y-m'))
+));
+$calendarEvents = array_fill_keys($paymentDaysThisMonth, 'Payments received');
 
 function moneyFormat($amount) { return '₦' . number_format((float) $amount); }
 function accountValue($value) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
@@ -111,8 +156,8 @@ function statusClass($status) { return strtolower((string) $status); }
 </style>
 
 <?php
-$maxRevenue = max($monthlyRevenue);
-$maxExpense = max($monthlyExpenses);
+$maxRevenue = max(1, max($monthlyRevenue));
+$maxExpense = max(1, max($monthlyExpenses));
 $firstDay = strtotime(date('Y-m-01'));
 $daysInMonth = (int) date('t', $firstDay);
 $startWeekday = (int) date('N', $firstDay);
@@ -156,14 +201,14 @@ $startWeekday = (int) date('N', $firstDay);
 
 	<!-- Recent payments and outstanding balances: operational tables for daily finance work. -->
 	<section class="row g-4">
-		<div class="col-xl-7"><div class="table-card"><div class="p-3"><h4 class="mb-1">Recent Payments</h4><p class="text-muted mb-0">Latest student fee transactions.</p></div><div class="table-scroll"><table class="table finance-table align-middle"><thead><tr><th>Receipt No.</th><th>Student Name</th><th>Class</th><th>Amount</th><th>Payment Method</th><th>Date</th><th>Status</th></tr></thead><tbody><?php foreach ($recentPayments as $payment): ?><tr><td><?php echo accountValue($payment['receipt']); ?></td><td><?php echo accountValue($payment['student']); ?></td><td><?php echo accountValue($payment['class']); ?></td><td><?php echo moneyFormat($payment['amount']); ?></td><td><?php echo accountValue($payment['method']); ?></td><td><?php echo accountValue($payment['date']); ?></td><td><span class="status-badge status-<?php echo accountValue(statusClass($payment['status'])); ?>"><i class="fa-solid fa-circle"></i><?php echo accountValue($payment['status']); ?></span></td></tr><?php endforeach; ?></tbody></table></div></div></div>
-		<div class="col-xl-5"><div class="table-card"><div class="p-3"><h4 class="mb-1">Outstanding Fees</h4><p class="text-muted mb-0">Students with unpaid balances.</p></div><div class="table-scroll"><table class="table finance-table align-middle"><thead><tr><th>Student</th><th>Class</th><th>Total Fees</th><th>Amount Paid</th><th>Balance</th><th>Action</th></tr></thead><tbody><?php foreach ($outstandingList as $item): ?><?php $balance = $item['total'] - $item['paid']; ?><tr><td><?php echo accountValue($item['student']); ?></td><td><?php echo accountValue($item['class']); ?></td><td><?php echo moneyFormat($item['total']); ?></td><td><?php echo moneyFormat($item['paid']); ?></td><td><?php echo moneyFormat($balance); ?></td><td><button type="button" class="btn btn-sm btn-outline-success collect-btn"><i class="fa-solid fa-money-bill-transfer me-1"></i>Collect Payment</button></td></tr><?php endforeach; ?></tbody></table></div></div></div>
+		<div class="col-xl-7"><div class="table-card"><div class="p-3"><h4 class="mb-1">Recent Payments</h4><p class="text-muted mb-0">Latest student fee transactions.</p></div><div class="table-scroll"><table class="table finance-table align-middle"><thead><tr><th>Receipt No.</th><th>Student Name</th><th>Class</th><th>Amount</th><th>Payment Method</th><th>Date</th><th>Status</th></tr></thead><tbody><?php foreach ($recentPayments as $payment): ?><tr><td><?php echo accountValue($payment['receipt']); ?></td><td><?php echo accountValue($payment['student']); ?></td><td><?php echo accountValue($payment['class']); ?></td><td><?php echo moneyFormat($payment['amount']); ?></td><td><?php echo accountValue($payment['method']); ?></td><td><?php echo accountValue($payment['date']); ?></td><td><span class="status-badge status-<?php echo accountValue(statusClass($payment['status'])); ?>"><i class="fa-solid fa-circle"></i><?php echo accountValue($payment['status']); ?></span></td></tr><?php endforeach; ?><?php if (!$recentPayments): ?><tr><td colspan="7" class="text-center text-muted py-3">No payments recorded yet.</td></tr><?php endif; ?></tbody></table></div></div></div>
+		<div class="col-xl-5"><div class="table-card"><div class="p-3"><h4 class="mb-1">Outstanding Fees</h4><p class="text-muted mb-0">Students with unpaid balances.</p></div><div class="table-scroll"><table class="table finance-table align-middle"><thead><tr><th>Student</th><th>Class</th><th>Total Fees</th><th>Amount Paid</th><th>Balance</th><th>Action</th></tr></thead><tbody><?php foreach ($outstandingList as $item): ?><?php $balance = $item['total'] - $item['paid']; ?><tr><td><?php echo accountValue($item['student']); ?></td><td><?php echo accountValue($item['class']); ?></td><td><?php echo moneyFormat($item['total']); ?></td><td><?php echo moneyFormat($item['paid']); ?></td><td><?php echo moneyFormat($balance); ?></td><td><a href="fee-collection.php" class="btn btn-sm btn-outline-success collect-btn"><i class="fa-solid fa-money-bill-transfer me-1"></i>Collect Payment</a></td></tr><?php endforeach; ?><?php if (!$outstandingList): ?><tr><td colspan="6" class="text-center text-muted py-3">No outstanding balances.</td></tr><?php endif; ?></tbody></table></div></div></div>
 	</section>
 
 	<!-- Expense table, quick actions, notifications, and calendar widgets. -->
 	<section class="row g-4">
-		<div class="col-xl-6"><div class="table-card"><div class="p-3"><h4 class="mb-1">Recent Expenses</h4><p class="text-muted mb-0">Latest recorded school expenses.</p></div><div class="table-scroll"><table class="table finance-table align-middle"><thead><tr><th>Date</th><th>Expense Category</th><th>Description</th><th>Amount</th></tr></thead><tbody><?php foreach ($recentExpenses as $expense): ?><tr><td><?php echo accountValue($expense['date']); ?></td><td><?php echo accountValue($expense['category']); ?></td><td><?php echo accountValue($expense['description']); ?></td><td><?php echo moneyFormat($expense['amount']); ?></td></tr><?php endforeach; ?></tbody></table></div></div></div>
-		<div class="col-xl-6"><div class="widget-card"><h4 class="mb-3">Quick Actions</h4><div class="quick-actions-grid"><?php foreach ($quickActions as $action): ?><a href="javascript:void(0);" class="quick-action"><i class="fa-solid <?php echo accountValue($action['icon']); ?>"></i><?php echo accountValue($action['label']); ?></a><?php endforeach; ?></div></div></div>
+		<div class="col-xl-6"><div class="table-card"><div class="p-3"><h4 class="mb-1">Recent Expenses</h4><p class="text-muted mb-0">Latest recorded school expenses.</p></div><div class="table-scroll"><table class="table finance-table align-middle"><thead><tr><th>Date</th><th>Expense Category</th><th>Description</th><th>Amount</th></tr></thead><tbody><?php foreach ($recentExpenses as $expense): ?><tr><td><?php echo accountValue($expense['date']); ?></td><td><?php echo accountValue($expense['category']); ?></td><td><?php echo accountValue($expense['description']); ?></td><td><?php echo moneyFormat($expense['amount']); ?></td></tr><?php endforeach; ?><?php if (!$recentExpenses): ?><tr><td colspan="4" class="text-center text-muted py-3">No expenses recorded yet.</td></tr><?php endif; ?></tbody></table></div></div></div>
+		<div class="col-xl-6"><div class="widget-card"><h4 class="mb-3">Quick Actions</h4><div class="quick-actions-grid"><?php foreach ($quickActions as $action): ?><a href="<?php echo accountValue($action['href']); ?>" class="quick-action"><i class="fa-solid <?php echo accountValue($action['icon']); ?>"></i><?php echo accountValue($action['label']); ?></a><?php endforeach; ?></div></div></div>
 		<div class="col-xl-5"><div class="widget-card"><h4 class="mb-3">Notifications</h4><div class="notification-list"><?php foreach ($notifications as $note): ?><div class="notification-item"><i class="fa-solid fa-check-circle"></i><?php echo accountValue($note); ?></div><?php endforeach; ?></div></div></div>
 		<div class="col-xl-7"><div class="widget-card"><div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3"><h4 class="mb-0"><?php echo date('F Y'); ?></h4><span class="finance-kicker"><i class="fa-solid fa-calendar-days"></i> Finance Calendar</span></div><div class="calendar-grid"><?php foreach (['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] as $head): ?><div class="calendar-head"><?php echo $head; ?></div><?php endforeach; ?><?php for ($blank = 1; $blank < $startWeekday; $blank++): ?><div></div><?php endfor; ?><?php for ($day = 1; $day <= $daysInMonth; $day++): ?><div class="calendar-day <?php echo isset($calendarEvents[$day]) ? 'has-event' : ''; ?>" title="<?php echo isset($calendarEvents[$day]) ? accountValue($calendarEvents[$day]) : ''; ?>"><?php echo $day; ?><?php if (isset($calendarEvents[$day])): ?><span class="calendar-event"><?php echo accountValue($calendarEvents[$day]); ?></span><?php endif; ?></div><?php endfor; ?></div></div></div>
 	</section>

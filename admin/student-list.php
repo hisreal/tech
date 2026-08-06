@@ -1,28 +1,75 @@
-<?php require_once('includes/header.php'); ?>
-
 <?php
-// Placeholder data for the Student Management list. Replace these arrays with database queries during backend integration.
-$sessions = ['2025/2026', '2026/2027'];
-$classes = ['JSS 1', 'JSS 2', 'JSS 3', 'SS 1 Science', 'SS 2 Science', 'SS 3 Arts'];
-$sections = ['A', 'B', 'Science', 'Commercial', 'Arts'];
-$statuses = ['Active', 'Graduated', 'Suspended', 'Transferred'];
-$students = [
-    ['passport' => '../assets/img/students/student-01.jpg', 'reg_no' => 'REG-2026-001', 'admission_no' => 'ADM-001', 'name' => 'Musa Ibrahim', 'gender' => 'Male', 'class' => 'SS 2 Science', 'section' => 'Science', 'parent_phone' => '08031234567', 'status' => 'Active'],
-    ['passport' => '../assets/img/students/student-02.jpg', 'reg_no' => 'REG-2026-002', 'admission_no' => 'ADM-002', 'name' => 'Aisha Bello', 'gender' => 'Female', 'class' => 'JSS 1', 'section' => 'A', 'parent_phone' => '08029876543', 'status' => 'Active'],
-    ['passport' => '../assets/img/students/student-03.jpg', 'reg_no' => 'REG-2026-003', 'admission_no' => 'ADM-003', 'name' => 'David Okafor', 'gender' => 'Male', 'class' => 'SS 1 Science', 'section' => 'Science', 'parent_phone' => '08155552222', 'status' => 'Active'],
-    ['passport' => '../assets/img/students/student-04.jpg', 'reg_no' => 'REG-2026-004', 'admission_no' => 'ADM-004', 'name' => 'Fatima Sani', 'gender' => 'Female', 'class' => 'JSS 3', 'section' => 'B', 'parent_phone' => '07061112223', 'status' => 'Active'],
-    ['passport' => '../assets/img/students/student-05.jpg', 'reg_no' => 'REG-2026-005', 'admission_no' => 'ADM-005', 'name' => 'Emeka John', 'gender' => 'Male', 'class' => 'SS 3 Arts', 'section' => 'Arts', 'parent_phone' => '09034445556', 'status' => 'Graduated'],
-];
-$totalStudents = count($students);
-$maleStudents = count(array_filter($students, fn($student) => $student['gender'] === 'Male'));
-$femaleStudents = count(array_filter($students, fn($student) => $student['gender'] === 'Female'));
-$newAdmissions = 42;
+require_once __DIR__ . '/../includes/helpers/auth.php';
+sms_require_auth(['super-admin', 'admin']);
+
+use App\Services\StudentService;
+
+$studentService = new StudentService();
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $formAction = (string) ($_POST['form_action'] ?? '');
+    $id = (int) ($_POST['id'] ?? 0);
+    $actor = sms_current_user();
+
+    if (!sms_verify_csrf($_POST['_token'] ?? null)) {
+        sms_flash_set('error', 'Your session expired. Please try again.');
+    } elseif ($formAction === 'delete') {
+        $result = $studentService->delete($id, $actor);
+        sms_flash_set($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    header('Location: student-list.php?' . http_build_query($_GET));
+    exit;
+}
+
+$flashMessages = sms_flash();
+
+require_once('includes/header.php');
+
+$search = trim((string) ($_GET['search'] ?? ''));
+$classFilter = trim((string) ($_GET['class'] ?? ''));
+$sectionFilter = trim((string) ($_GET['section'] ?? ''));
+$sessionFilter = trim((string) ($_GET['session'] ?? ''));
+$statusFilter = trim((string) ($_GET['status'] ?? ''));
+$genderFilter = trim((string) ($_GET['gender'] ?? ''));
+$page = max(1, (int) ($_GET['page'] ?? 1));
+
+$result = $studentService->list([
+    'search' => $search,
+    'class_id' => $classFilter,
+    'section_id' => $sectionFilter,
+    'session_id' => $sessionFilter,
+    'status' => $statusFilter,
+    'gender' => $genderFilter,
+], $page, 10);
+
+$students = $result['data'];
+$meta = $result['meta'];
+
+$classOptions = $studentService->classesForSelect();
+$sectionOptions = $studentService->sectionsForSelect($classFilter !== '' ? (int) $classFilter : null);
+$sessionOptions = $studentService->sessionsForSelect();
+$statusOptions = ['active' => 'Active', 'graduated' => 'Graduated', 'withdrawn' => 'Withdrawn', 'suspended' => 'Suspended', 'deleted' => 'Deleted'];
+
+$currentSessionId = $studentService->currentSessionId();
+$totalStudents = (int) $studentService->list(['session_id' => $currentSessionId], 1, 1)['meta']['total'];
+$maleStudents = (int) $studentService->list(['session_id' => $currentSessionId, 'gender' => 'male'], 1, 1)['meta']['total'];
+$femaleStudents = (int) $studentService->list(['session_id' => $currentSessionId, 'gender' => 'female'], 1, 1)['meta']['total'];
+$newAdmissions = (int) $studentService->list(['session_id' => $currentSessionId, 'status' => 'active'], 1, 1)['meta']['total'];
+
 $summaryCards = [
     ['title' => 'Total Students', 'value' => number_format($totalStudents), 'icon' => 'fa-user-graduate', 'color' => 'success'],
     ['title' => 'Male Students', 'value' => number_format($maleStudents), 'icon' => 'fa-person', 'color' => 'blue'],
     ['title' => 'Female Students', 'value' => number_format($femaleStudents), 'icon' => 'fa-person-dress', 'color' => 'warning'],
-    ['title' => 'New Admissions', 'value' => number_format($newAdmissions), 'icon' => 'fa-user-plus', 'color' => 'success'],
+    ['title' => 'Active This Session', 'value' => number_format($newAdmissions), 'icon' => 'fa-user-plus', 'color' => 'success'],
 ];
+
+function sms_student_query(array $overrides = []): string
+{
+    $query = array_merge($_GET, $overrides);
+    unset($query['page']);
+    return 'student-list.php?' . http_build_query($query);
+}
 ?>
 
 <style>
@@ -45,7 +92,7 @@ $summaryCards = [
     .admin-student-module .form-control,.admin-student-module .form-select { min-height:46px; border-radius:14px; border:1px solid rgba(148,163,184,.35); font-weight:700; }
     .admin-student-module .form-control:focus,.admin-student-module .form-select:focus { border-color:var(--asm-primary); box-shadow:0 0 0 .18rem rgba(15,118,110,.14); }
     .admin-student-module .module-btn { border:0; min-height:44px; display:inline-flex; align-items:center; justify-content:center; gap:8px; border-radius:14px; padding:10px 15px; font-weight:900; text-decoration:none; transition:transform .18s ease, box-shadow .18s ease; }
-    .admin-student-module .module-btn:hover { transform:translateY(-2px); }
+    .admin-student-module .module-btn:hover { transform:translateY(-2px); color:#fff; }
     .admin-student-module .btn-primary-soft { background:var(--asm-primary); color:#fff; box-shadow:0 12px 24px rgba(15,118,110,.22); }
     .admin-student-module .btn-muted-soft { background:#f1f5f9; color:var(--asm-ink); }
     .admin-student-module .btn-danger-soft { background:rgba(220,38,38,.1); color:var(--asm-danger); }
@@ -60,7 +107,8 @@ $summaryCards = [
     .admin-student-module .status-active { background:rgba(22,163,74,.12); color:#15803d; }
     .admin-student-module .status-graduated { background:rgba(37,99,235,.1); color:#1d4ed8; }
     .admin-student-module .status-suspended { background:rgba(220,38,38,.1); color:var(--asm-danger); }
-    .admin-student-module .status-transferred { background:rgba(245,158,11,.13); color:var(--asm-warning); }
+    .admin-student-module .status-withdrawn { background:rgba(245,158,11,.13); color:var(--asm-warning); }
+    .admin-student-module .status-deleted { background:rgba(100,116,139,.15); color:#475569; }
     .admin-student-module .student-action-dropdown { position:relative; display:inline-flex; justify-content:center; }
     .admin-student-module .action-menu-btn { width:38px; height:38px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; color:var(--asm-primary-dark); background:var(--asm-soft); border:1px solid var(--asm-border); }
     .admin-student-module .action-menu-btn:hover,.admin-student-module .action-menu-btn:focus { background:var(--asm-primary); color:#fff; box-shadow:0 10px 22px rgba(15,118,110,.18); }
@@ -70,13 +118,20 @@ $summaryCards = [
     .admin-student-module .student-actions-menu .dropdown-item.text-danger i { color:var(--asm-danger); }
     .admin-student-module .student-actions-menu .dropdown-item:hover { background:var(--asm-soft); color:var(--asm-primary-dark); }
     .admin-student-module .pagination-strip { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding-top:16px; }
-    .admin-student-module .page-link-soft { min-width:38px; height:38px; display:inline-flex; align-items:center; justify-content:center; border-radius:12px; background:#fff; border:1px solid var(--asm-border); color:var(--asm-primary-dark); font-weight:900; text-decoration:none; }
+    .admin-student-module .page-link-soft { min-width:38px; height:38px; padding:0 10px; display:inline-flex; align-items:center; justify-content:center; border-radius:12px; background:#fff; border:1px solid var(--asm-border); color:var(--asm-primary-dark); font-weight:900; text-decoration:none; }
     .admin-student-module .page-link-soft.active { background:var(--asm-primary); color:#fff; }
+    .admin-student-module .page-link-soft.disabled { opacity:.4; pointer-events:none; }
     @media(max-width:991.98px){ .admin-student-module .filter-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
     @media(max-width:575.98px){ .admin-student-module .module-hero,.admin-student-module .module-card{padding:18px;border-radius:18px}.admin-student-module .filter-grid{grid-template-columns:1fr}.admin-student-module .module-btn{width:100%}.admin-student-module .summary-card h4{font-size:21px} }
 </style>
 
 <div class="admin-student-module">
+    <?php foreach ($flashMessages as $type => $messages): ?>
+        <?php foreach ($messages as $message): ?>
+            <div class="alert alert-<?php echo $type === 'error' ? 'danger' : sms_e($type); ?>" role="alert"><?php echo sms_e($message); ?></div>
+        <?php endforeach; ?>
+    <?php endforeach; ?>
+
     <!-- Page header and breadcrumb. -->
     <section class="module-hero">
         <div class="breadcrumb-line">Dashboard <i class="fa-solid fa-angle-right mx-1"></i> Student Management <i class="fa-solid fa-angle-right mx-1"></i> All Students</div>
@@ -99,47 +154,42 @@ $summaryCards = [
         <?php endforeach; ?>
     </section>
 
-    <!-- Search and filtering controls prepared for future database queries. -->
+    <!-- Search and filtering controls. -->
     <section class="module-card">
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
             <div>
                 <h4 class="mb-1">Search & Filter</h4>
-                <p class="text-muted mb-0">Filter by registration details, class, session, or current student status.</p>
+                <p class="text-muted mb-0">Filter by name, registration/admission number, class, session, gender, or status.</p>
             </div>
         </div>
-        <form id="studentFilterForm">
+        <form method="get">
             <div class="filter-grid">
-                <div><label for="regNo">Registration Number</label><input class="form-control" id="regNo" name="reg_no" placeholder="REG-2026-001"></div>
-                <div><label for="admissionNo">Admission Number</label><input class="form-control" id="admissionNo" name="admission_no" placeholder="ADM-001"></div>
-                <div><label for="studentName">Student Name</label><input class="form-control" id="studentName" name="student_name" placeholder="Search by name"></div>
-                <div><label for="classFilter">Class</label><select class="form-select" id="classFilter" name="class"><option value="">All Classes</option><?php foreach ($classes as $class): ?><option><?php echo sms_e($class); ?></option><?php endforeach; ?></select></div>
-                <div><label for="sectionFilter">Section</label><select class="form-select" id="sectionFilter" name="section"><option value="">All Sections</option><?php foreach ($sections as $section): ?><option><?php echo sms_e($section); ?></option><?php endforeach; ?></select></div>
-                <div><label for="sessionFilter">Academic Session</label><select class="form-select" id="sessionFilter" name="session"><option value="">All Sessions</option><?php foreach ($sessions as $session): ?><option><?php echo sms_e($session); ?></option><?php endforeach; ?></select></div>
-                <div><label for="statusFilter">Status</label><select class="form-select" id="statusFilter" name="status"><option value="">All Statuses</option><?php foreach ($statuses as $status): ?><option><?php echo sms_e($status); ?></option><?php endforeach; ?></select></div>
-                <div class="d-flex align-items-end gap-2"><button class="module-btn btn-primary-soft" type="submit"><i class="fa-solid fa-magnifying-glass"></i> Search</button><button class="module-btn btn-muted-soft" type="reset"><i class="fa-solid fa-rotate-left"></i> Reset</button></div>
+                <div><label for="search">Search</label><input class="form-control" id="search" name="search" placeholder="Name, reg. no, or admission no" value="<?php echo sms_e($search); ?>"></div>
+                <div><label for="classFilter">Class</label><select class="form-select" id="classFilter" name="class"><option value="">All Classes</option><?php foreach ($classOptions as $option): ?><option value="<?php echo (int) $option['id']; ?>" <?php echo (string) $option['id'] === $classFilter ? 'selected' : ''; ?>><?php echo sms_e($option['name']); ?></option><?php endforeach; ?></select></div>
+                <div><label for="sectionFilter">Section</label><select class="form-select" id="sectionFilter" name="section"><option value="">All Sections</option><?php foreach ($sectionOptions as $option): ?><option value="<?php echo (int) $option['id']; ?>" <?php echo (string) $option['id'] === $sectionFilter ? 'selected' : ''; ?>><?php echo sms_e($option['name']); ?></option><?php endforeach; ?></select></div>
+                <div><label for="sessionFilter">Academic Session</label><select class="form-select" id="sessionFilter" name="session"><option value="">Current Session</option><?php foreach ($sessionOptions as $option): ?><option value="<?php echo (int) $option['id']; ?>" <?php echo (string) $option['id'] === $sessionFilter ? 'selected' : ''; ?>><?php echo sms_e($option['name']); ?></option><?php endforeach; ?></select></div>
+                <div><label for="genderFilter">Gender</label><select class="form-select" id="genderFilter" name="gender"><option value="">All Genders</option><option value="male" <?php echo $genderFilter === 'male' ? 'selected' : ''; ?>>Male</option><option value="female" <?php echo $genderFilter === 'female' ? 'selected' : ''; ?>>Female</option><option value="other" <?php echo $genderFilter === 'other' ? 'selected' : ''; ?>>Other</option></select></div>
+                <div><label for="statusFilter">Status</label><select class="form-select" id="statusFilter" name="status"><option value="">Active, Graduated, etc.</option><?php foreach ($statusOptions as $value => $label): ?><option value="<?php echo sms_e($value); ?>" <?php echo $statusFilter === $value ? 'selected' : ''; ?>><?php echo sms_e($label); ?></option><?php endforeach; ?></select></div>
+                <div class="d-flex align-items-end gap-2"><button class="module-btn btn-primary-soft" type="submit"><i class="fa-solid fa-magnifying-glass"></i> Search</button><a class="module-btn btn-muted-soft" href="student-list.php"><i class="fa-solid fa-rotate-left"></i> Reset</a></div>
             </div>
         </form>
     </section>
 
-    <!-- Student table with bulk actions and page controls. -->
+    <!-- Student table. -->
     <section class="module-card">
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
             <div>
                 <h4 class="mb-1">Student Records</h4>
-                <p class="text-muted mb-0">Select rows for bulk exports, printing, or administrative actions.</p>
+                <p class="text-muted mb-0"><?php echo (int) $meta['total']; ?> record(s) found.</p>
             </div>
             <div class="d-flex flex-wrap gap-2">
-                <button class="module-btn btn-danger-soft" type="button" id="deleteSelected"><i class="fa-solid fa-trash"></i> Delete Selected</button>
-                <button class="module-btn btn-outline-soft" type="button" id="exportCsv"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
-                <button class="module-btn btn-outline-soft" type="button" id="exportExcel"><i class="fa-solid fa-file-excel"></i> Export Excel</button>
-                <button class="module-btn btn-outline-soft" type="button" id="printList"><i class="fa-solid fa-print"></i> Print List</button>
+                <button class="module-btn btn-outline-soft" type="button" onclick="window.print()"><i class="fa-solid fa-print"></i> Print List</button>
             </div>
         </div>
         <div class="table-shell">
             <table class="table align-middle" id="studentTable">
                 <thead>
                     <tr>
-                        <th><input class="form-check-input" type="checkbox" id="selectAllStudents" aria-label="Select all students"></th>
                         <th>Passport</th>
                         <th>Registration Number</th>
                         <th>Admission Number</th>
@@ -154,89 +204,86 @@ $summaryCards = [
                 </thead>
                 <tbody>
                     <?php foreach ($students as $student): ?>
-                        <?php $statusClass = 'status-' . strtolower(str_replace(' ', '-', $student['status'])); ?>
-                        <tr data-student-name="<?php echo sms_e(strtolower($student['name'])); ?>" data-reg-no="<?php echo sms_e(strtolower($student['reg_no'])); ?>" data-admission-no="<?php echo sms_e(strtolower($student['admission_no'])); ?>" data-class="<?php echo sms_e($student['class']); ?>" data-section="<?php echo sms_e($student['section']); ?>" data-status="<?php echo sms_e($student['status']); ?>">
-                            <td><input class="form-check-input student-select" type="checkbox" value="<?php echo sms_e($student['reg_no']); ?>" aria-label="Select <?php echo sms_e($student['name']); ?>"></td>
-                            <td><img class="student-passport" src="<?php echo sms_e($student['passport']); ?>" alt="<?php echo sms_e($student['name']); ?> passport"></td>
-                            <td><?php echo sms_e($student['reg_no']); ?></td>
-                            <td><?php echo sms_e($student['admission_no']); ?></td>
-                            <td><?php echo sms_e($student['name']); ?></td>
-                            <td><?php echo sms_e($student['gender']); ?></td>
-                            <td><?php echo sms_e($student['class']); ?></td>
-                            <td><?php echo sms_e($student['section']); ?></td>
-                            <td><?php echo sms_e($student['parent_phone']); ?></td>
-                            <td><span class="status-badge <?php echo sms_e($statusClass); ?>"><i class="fa-solid fa-circle"></i><?php echo sms_e($student['status']); ?></span></td>
+                        <?php
+                        $fullName = trim($student['first_name'] . ' ' . $student['last_name']);
+                        $photo = !empty($student['passport_path']) ? '../' . ltrim((string) $student['passport_path'], '/') : '../assets/img/avatar/avatar1.jpg';
+                        $statusClass = 'status-' . strtolower((string) $student['status']);
+                        ?>
+                        <tr>
+                            <td><img class="student-passport" src="<?php echo sms_e($photo); ?>" alt="<?php echo sms_e($fullName); ?> passport"></td>
+                            <td><?php echo sms_e($student['registration_no']); ?></td>
+                            <td><?php echo sms_e($student['admission_no'] ?? ''); ?></td>
+                            <td><?php echo sms_e($fullName); ?></td>
+                            <td><?php echo sms_e(ucfirst((string) ($student['gender'] ?? ''))); ?></td>
+                            <td><?php echo sms_e($student['class_name'] ?? 'Unassigned'); ?></td>
+                            <td><?php echo sms_e($student['section_name'] ?? ''); ?></td>
+                            <td><?php echo sms_e($student['guardian_phone'] ?? ''); ?></td>
+                            <td><span class="status-badge <?php echo sms_e($statusClass); ?>"><i class="fa-solid fa-circle"></i><?php echo sms_e(ucfirst((string) $student['status'])); ?></span></td>
                             <td>
-                                <div class="dropdown student-action-dropdown" aria-label="Student row actions">
-                                    <button class="action-menu-btn" type="button" id="studentAction<?php echo sms_e($student['reg_no']); ?>" data-bs-toggle="dropdown" aria-expanded="false" title="Student actions">
+                                <div class="dropdown student-action-dropdown">
+                                    <button class="action-menu-btn" type="button" id="studentAction<?php echo (int) $student['id']; ?>" data-bs-toggle="dropdown" aria-expanded="false" title="Student actions">
                                         <i class="fa-solid fa-ellipsis-vertical"></i>
                                     </button>
-                                    <ul class="dropdown-menu dropdown-menu-end student-actions-menu" aria-labelledby="studentAction<?php echo sms_e($student['reg_no']); ?>">
-                                        <li><a class="dropdown-item" href="#"><i class="fa-solid fa-eye"></i> View Profile</a></li>
-                                        <li><a class="dropdown-item" href="#"><i class="fa-solid fa-pen"></i> Edit Student</a></li>
-                                        <li><a class="dropdown-item text-danger" href="#"><i class="fa-solid fa-trash"></i> Delete Student</a></li>
-                                        <li><a class="dropdown-item" href="#"><i class="fa-solid fa-calendar-check"></i> View Attendance</a></li>
-                                        <li><a class="dropdown-item" href="#"><i class="fa-solid fa-square-poll-vertical"></i> View Results</a></li>
-                                        <li><a class="dropdown-item" href="#"><i class="fa-solid fa-receipt"></i> Payment History</a></li>
-                                        <li><a class="dropdown-item" href="#"><i class="fa-solid fa-print"></i> Print Student Information</a></li>
+                                    <ul class="dropdown-menu dropdown-menu-end student-actions-menu" aria-labelledby="studentAction<?php echo (int) $student['id']; ?>">
+                                        <li><a class="dropdown-item" href="student-profile.php?id=<?php echo (int) $student['id']; ?>"><i class="fa-solid fa-eye"></i> View Profile</a></li>
+                                        <li><a class="dropdown-item" href="edit-student.php?id=<?php echo (int) $student['id']; ?>"><i class="fa-solid fa-pen"></i> Edit Student</a></li>
+                                        <li><a class="dropdown-item text-danger delete-student" href="#" data-id="<?php echo (int) $student['id']; ?>" data-name="<?php echo sms_e($fullName); ?>"><i class="fa-solid fa-trash"></i> Delete Student</a></li>
                                     </ul>
                                 </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
+                    <?php if (!$students): ?>
+                        <tr><td colspan="10" class="text-center text-muted py-4">No students match your search.</td></tr>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
         <div class="pagination-strip">
-            <div class="d-flex align-items-center gap-2 flex-wrap"><span class="text-muted fw-bold">Records per page</span><select class="form-select" style="width:90px"><option>10</option><option>25</option><option>50</option><option>100</option></select></div>
-            <div class="d-flex align-items-center gap-2 flex-wrap"><a href="#" class="page-link-soft">Previous</a><a href="#" class="page-link-soft active">1</a><a href="#" class="page-link-soft">2</a><a href="#" class="page-link-soft">3</a><a href="#" class="page-link-soft">Next</a></div>
+            <span class="text-muted fw-bold"><?php echo (int) $meta['total']; ?> record(s) &middot; page <?php echo (int) $meta['page']; ?> of <?php echo (int) $meta['last_page']; ?></span>
+            <?php if ($meta['last_page'] > 1): ?>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <a class="page-link-soft <?php echo $meta['page'] <= 1 ? 'disabled' : ''; ?>" href="<?php echo sms_e(sms_student_query(['page' => max(1, $meta['page'] - 1)])); ?>">Previous</a>
+                    <?php for ($p = 1; $p <= $meta['last_page']; $p++): ?>
+                        <a class="page-link-soft <?php echo $p === (int) $meta['page'] ? 'active' : ''; ?>" href="<?php echo sms_e(sms_student_query(['page' => $p])); ?>"><?php echo $p; ?></a>
+                    <?php endfor; ?>
+                    <a class="page-link-soft <?php echo $meta['page'] >= $meta['last_page'] ? 'disabled' : ''; ?>" href="<?php echo sms_e(sms_student_query(['page' => min($meta['last_page'], $meta['page'] + 1)])); ?>">Next</a>
+                </div>
+            <?php endif; ?>
         </div>
     </section>
 </div>
+
+<div class="modal fade" id="deleteStudentModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><form class="modal-content" method="post">
+    <div class="modal-header"><h5 class="modal-title">Delete Student</h5><button class="btn-close" type="button" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+        <input type="hidden" name="_token" value="<?php echo sms_e(sms_csrf_token()); ?>">
+        <input type="hidden" name="form_action" value="delete">
+        <input type="hidden" name="id" id="deleteStudentId" value="">
+        <p>Are you sure you want to delete <strong id="deleteStudentName">this student</strong>?</p>
+        <p class="text-muted fw-bold">This marks the student as deleted and disables their login. Academic records are preserved and this can be reversed by editing the student's status.</p>
+    </div>
+    <div class="modal-footer"><button class="module-btn btn-muted-soft" type="button" data-bs-dismiss="modal">Cancel</button><button class="module-btn btn-danger-soft" type="submit">Delete</button></div>
+</form></div></div>
 
 </div>
 </div>
 
 <script data-cfasync="false" type="text/javascript">
-/* Student list interactions: filtering, bulk selection, export, and print placeholders. */
 (function(){
-    var filterForm = document.getElementById('studentFilterForm');
-    var rows = Array.prototype.slice.call(document.querySelectorAll('#studentTable tbody tr'));
-    var selectAll = document.getElementById('selectAllStudents');
-
-    function normalize(value) { return String(value || '').trim().toLowerCase(); }
-    function selectedRows() { return rows.filter(function(row){ return row.querySelector('.student-select').checked; }); }
-    function notify(message) { alert(message); }
-
-    filterForm.addEventListener('submit', function(event){
-        event.preventDefault();
-        var reg = normalize(document.getElementById('regNo').value);
-        var admission = normalize(document.getElementById('admissionNo').value);
-        var name = normalize(document.getElementById('studentName').value);
-        var classValue = document.getElementById('classFilter').value;
-        var sectionValue = document.getElementById('sectionFilter').value;
-        var statusValue = document.getElementById('statusFilter').value;
-        rows.forEach(function(row){
-            var visible = (!reg || normalize(row.dataset.regNo).indexOf(reg) > -1)
-                && (!admission || normalize(row.dataset.admissionNo).indexOf(admission) > -1)
-                && (!name || normalize(row.dataset.studentName).indexOf(name) > -1)
-                && (!classValue || row.dataset.class === classValue)
-                && (!sectionValue || row.dataset.section === sectionValue)
-                && (!statusValue || row.dataset.status === statusValue);
-            row.style.display = visible ? '' : 'none';
+    document.querySelectorAll('.delete-student').forEach(function(link){
+        link.addEventListener('click', function(event){
+            event.preventDefault();
+            document.getElementById('deleteStudentId').value = link.dataset.id;
+            document.getElementById('deleteStudentName').textContent = link.dataset.name;
+            var modal = new bootstrap.Modal(document.getElementById('deleteStudentModal'));
+            modal.show();
         });
     });
-
-    filterForm.addEventListener('reset', function(){ setTimeout(function(){ rows.forEach(function(row){ row.style.display = ''; }); }, 0); });
-    selectAll.addEventListener('change', function(){ rows.forEach(function(row){ row.querySelector('.student-select').checked = selectAll.checked; }); });
-    document.getElementById('deleteSelected').addEventListener('click', function(){
-        var count = selectedRows().length;
-        if (!count) { notify('Please select at least one student before deleting.'); return; }
-        if (confirm('Delete ' + count + ' selected student record(s)? This is a placeholder action for future database integration.')) { notify('Selected student records marked for deletion.'); }
-    });
-    document.getElementById('exportCsv').addEventListener('click', function(){ notify('CSV export is ready for backend integration.'); });
-    document.getElementById('exportExcel').addEventListener('click', function(){ notify('Excel export is ready for backend integration.'); });
-    document.getElementById('printList').addEventListener('click', function(){ window.print(); });
+    var classFilter = document.getElementById('classFilter');
+    if (classFilter) {
+        classFilter.addEventListener('change', function(){ classFilter.form.submit(); });
+    }
 })();
 </script>
 

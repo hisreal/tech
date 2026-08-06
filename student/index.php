@@ -1,5 +1,28 @@
 <?php require_once('includes/header.php'); ?>
 
+<?php
+
+use App\Services\FinanceService;
+
+$financeService = new FinanceService();
+$currentUser = sms_current_user();
+$studentId = $financeService->studentIdForUser((int) $currentUser['id']);
+
+$billing = $studentId ? $financeService->studentBillingSummary($studentId) : ['total_bill' => 0, 'total_paid' => 0, 'balance' => 0];
+$payments = $studentId ? $financeService->paymentHistory(['student_id' => $studentId], 200) : [];
+
+function studentPayMoney($amount) { return '₦' . number_format((float) $amount); }
+function studentPayValue($value) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
+function studentPayStatus(string $status): string
+{
+	return match ($status) {
+		'paid' => 'paid',
+		'pending' => 'pending',
+		default => 'partial',
+	};
+}
+?>
+
 <!-- Payment dashboard styles: scoped to this student index page only. -->
 <style>
 	.student-payment-page {
@@ -199,7 +222,7 @@
 						<span class="payment-summary-icon primary"><i class="fa-solid fa-file-invoice-dollar"></i></span>
 						<span class="text-muted small">Total Bill</span>
 					</div>
-					<h3 class="mb-0" id="totalBill">N0</h3>
+					<h3 class="mb-0" id="totalBill"><?php echo studentPayValue(studentPayMoney($billing['total_bill'])); ?></h3>
 					<p class="text-muted mb-0">Total amount billed</p>
 				</div>
 			</div>
@@ -209,7 +232,7 @@
 						<span class="payment-summary-icon success"><i class="fa-solid fa-circle-check"></i></span>
 						<span class="text-muted small">Paid</span>
 					</div>
-					<h3 class="mb-0" id="totalPaid">N0</h3>
+					<h3 class="mb-0" id="totalPaid"><?php echo studentPayValue(studentPayMoney($billing['total_paid'])); ?></h3>
 					<p class="text-muted mb-0">Amount received</p>
 				</div>
 			</div>
@@ -219,7 +242,7 @@
 						<span class="payment-summary-icon warning"><i class="fa-solid fa-wallet"></i></span>
 						<span class="text-muted small">Balance</span>
 					</div>
-					<h3 class="mb-0" id="totalBalance">N0</h3>
+					<h3 class="mb-0" id="totalBalance"><?php echo studentPayValue(studentPayMoney($billing['balance'])); ?></h3>
 					<p class="text-muted mb-0">Outstanding amount</p>
 				</div>
 			</div>
@@ -267,16 +290,19 @@
 						</tr>
 					</thead>
 					<tbody>
-						<tr data-date="2026-06-30" data-status="paid" data-bill="15000" data-paid="15000">
-							<td><span class="fw-semibold text-primary">#PAY-1032</span></td>
-							<td>30/06/2026</td>
-							<td>Third Term Tuition</td>
-							<td>SS 2</td>
-							<td>2025/2026</td>
-							<td>Term 3</td>
-							<td>N15,000</td>
-							<td><div class="d-flex gap-1"><a href="javascript:void(0);" class="payment-action" title="View receipt"><i class="fa-solid fa-eye"></i></a><a href="javascript:void(0);" class="payment-action" title="Download receipt"><i class="fa-solid fa-download"></i></a></div></td>
-						</tr>
+						<?php foreach ($payments as $payment): ?>
+							<?php $status = studentPayStatus((string) $payment['status']); ?>
+							<tr data-date="<?php echo studentPayValue(date('Y-m-d', strtotime((string) $payment['payment_date']))); ?>" data-status="<?php echo studentPayValue($status); ?>">
+								<td><span class="fw-semibold text-primary">#<?php echo studentPayValue($payment['receipt_no'] ?? $payment['transaction_no']); ?></span></td>
+								<td><?php echo studentPayValue(date('d/m/Y', strtotime((string) $payment['payment_date']))); ?></td>
+								<td><?php echo studentPayValue(ucwords(str_replace('_', ' ', (string) $payment['payment_type']))); ?></td>
+								<td><?php echo studentPayValue($payment['class_name'] ?? '-'); ?></td>
+								<td><?php echo studentPayValue($payment['session_name'] ?? '-'); ?></td>
+								<td><?php echo studentPayValue($payment['term_name'] ?? '-'); ?></td>
+								<td><?php echo studentPayValue(studentPayMoney($payment['amount'])); ?></td>
+								<td><div class="d-flex gap-1"><a href="receipt-print.php?payment_id=<?php echo (int) $payment['id']; ?>" class="payment-action" title="View receipt"><i class="fa-solid fa-eye"></i></a></div></td>
+							</tr>
+						<?php endforeach; ?>
 					</tbody>
 				</table>
 				<div class="empty-state text-center" id="paymentEmptyState">
@@ -300,11 +326,6 @@
 		const dateSort = document.getElementById('paymentDateSort');
 		const emptyState = document.getElementById('paymentEmptyState');
 		const rows = Array.from(tbody.querySelectorAll('tr'));
-		const currencyFormatter = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 });
-
-		function formatCurrency(amount) {
-			return currencyFormatter.format(amount).replace('NGN', 'N').trim();
-		}
 
 		function sortRows() {
 			const sortedRows = Array.from(tbody.querySelectorAll('tr')).sort((a, b) => {
@@ -314,14 +335,6 @@
 			});
 
 			sortedRows.forEach(row => tbody.appendChild(row));
-		}
-
-		function updateSummary(visibleRows) {
-			const totalBill = visibleRows.reduce((sum, row) => sum + Number(row.dataset.bill || 0), 0);
-			const totalPaid = visibleRows.reduce((sum, row) => sum + Number(row.dataset.paid || 0), 0);
-			document.getElementById('totalBill').textContent = formatCurrency(totalBill);
-			document.getElementById('totalPaid').textContent = formatCurrency(totalPaid);
-			document.getElementById('totalBalance').textContent = formatCurrency(totalBill - totalPaid);
 		}
 
 		function applyControls() {
@@ -342,7 +355,6 @@
 			});
 
 			emptyState.style.display = visibleRows.length ? 'none' : 'block';
-			updateSummary(visibleRows);
 		}
 
 		searchInput.addEventListener('input', applyControls);

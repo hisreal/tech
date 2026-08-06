@@ -2,14 +2,14 @@
 require_once __DIR__ . '/../includes/helpers/auth.php';
 
 use App\Controllers\SettingsController;
+use App\Core\Session;
 
 sms_require_auth(['super-admin', 'admin']);
 
 $controller = new SettingsController();
 $currentUser = sms_current_user();
 $activeTab = $_SESSION['_school_settings_active_tab'] ?? 'school-info';
-$errors = $_SESSION['_school_settings_errors'] ?? [];
-unset($_SESSION['_school_settings_active_tab'], $_SESSION['_school_settings_errors']);
+unset($_SESSION['_school_settings_active_tab']);
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $section = (string) ($_POST['settings_section'] ?? '');
@@ -22,7 +22,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $result = $controller->update($section, $_POST, $_FILES['school_logo'] ?? null, $currentUser);
         sms_flash_set($result['success'] ? 'success' : 'error', $result['message']);
         if (!empty($result['errors'])) {
-            $_SESSION['_school_settings_errors'] = $result['errors'];
+            Session::flashInput($_POST);
+            Session::flashErrors($result['errors']);
         }
     }
 
@@ -30,10 +31,50 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     exit;
 }
 
+$errors = Session::errors();
+$oldInput = Session::oldAll();
+
 $pageData = $controller->index();
 $settings = $pageData['settings'];
 $sessions = $pageData['sessions'];
 $terms = $pageData['terms'];
+
+// Repopulate the form with what was actually submitted (not the last-saved
+// DB value) whenever we've just bounced back from a failed validation, so
+// the user doesn't lose their input while fixing one bad field.
+if ($oldInput !== []) {
+    $directFields = [
+        'school_name' => 'school.name', 'school_motto' => 'school.motto', 'school_address' => 'school.address',
+        'phone' => 'school.phone', 'email' => 'school.email', 'website' => 'school.website',
+        'school_type' => 'school.type', 'principal_name' => 'school.principal_name',
+        'current_session_id' => 'academic.current_session_id', 'current_term_id' => 'academic.current_term_id',
+        'pass_mark' => 'result.pass_mark', 'grading_system' => 'result.grading_system',
+        'enable_position_calculation' => 'result.enable_position_calculation',
+        'auto_promote_students' => 'academic.auto_promote_students', 'auto_publish_results' => 'result.auto_publish_results',
+        'opening_time' => 'timetable.opening_time', 'closing_time' => 'timetable.closing_time',
+        'attendance_start_time' => 'attendance.start_time', 'late_arrival_threshold' => 'attendance.late_arrival_threshold',
+        'attendance_grace_period' => 'attendance.grace_period_minutes',
+        'default_duration_minutes' => 'cbt.default_duration_minutes', 'default_pass_mark' => 'cbt.default_pass_mark',
+        'maximum_attempts' => 'cbt.maximum_attempts',
+    ];
+    foreach ($directFields as $field => $settingKey) {
+        if (array_key_exists($field, $oldInput)) {
+            $settings[$settingKey] = $oldInput[$field];
+        }
+    }
+
+    // Checkboxes are omitted from $_POST entirely when unchecked, so their
+    // presence in the flashed input (not its value) is what matters.
+    foreach ([
+        'enable_student_attendance' => 'attendance.enable_student_attendance',
+        'enable_teacher_attendance' => 'attendance.enable_teacher_attendance',
+        'randomize_questions' => 'cbt.randomize_questions', 'randomize_answers' => 'cbt.randomize_answers',
+        'auto_submit' => 'cbt.auto_submit', 'show_results_immediately' => 'cbt.show_results_immediately',
+        'allow_review_after_exam' => 'cbt.allow_review_after_exam',
+    ] as $field => $settingKey) {
+        $settings[$settingKey] = array_key_exists($field, $oldInput);
+    }
+}
 
 $currentSessionId = (int) ($settings['academic.current_session_id'] ?? 0);
 $currentTermId = (int) ($settings['academic.current_term_id'] ?? 0);

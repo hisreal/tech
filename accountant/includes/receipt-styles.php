@@ -1,0 +1,30 @@
+<?php /** Shared styles for Receipt Management and Payment History pages. */ ?>
+<style>
+	.receipt-page,.payment-history-page { --rc-primary:#0f766e; --rc-primary-dark:#115e59; --rc-primary-soft:rgba(15,118,110,.1); --rc-success:#16a34a; --rc-success-soft:rgba(22,163,74,.12); --rc-warning:#f59e0b; --rc-warning-soft:rgba(245,158,11,.14); --rc-danger:#dc2626; --rc-danger-soft:rgba(220,38,38,.1); --rc-blue:#2563eb; --rc-blue-soft:rgba(37,99,235,.1); --rc-ink:#10201d; --rc-muted:#64748b; --rc-border:rgba(15,118,110,.18); --rc-shadow:0 22px 60px rgba(15,23,42,.09); padding-bottom:34px; }
+	.receipt-page .rc-hero,.receipt-page .rc-card,.receipt-page .summary-card,.receipt-page .table-card,.payment-history-page .rc-hero,.payment-history-page .rc-card,.payment-history-page .summary-card,.payment-history-page .table-card { background:rgba(255,255,255,.98); border:1px solid var(--rc-border); box-shadow:var(--rc-shadow); }
+	.receipt-page .rc-hero,.payment-history-page .rc-hero { padding:28px; border-radius:26px; margin-bottom:22px; background:linear-gradient(135deg,rgba(240,253,244,.98),rgba(255,255,255,.98)); }
+	.receipt-page .breadcrumb-line,.payment-history-page .breadcrumb-line { color:var(--rc-muted); font-size:13px; font-weight:800; margin-bottom:10px; }
+	.receipt-page .breadcrumb-line a,.payment-history-page .breadcrumb-line a { color:var(--rc-primary-dark); text-decoration:none; }
+	.receipt-page .rc-kicker,.receipt-page .field-icon,.receipt-page .summary-icon,.receipt-page .status-badge,.payment-history-page .rc-kicker,.payment-history-page .field-icon,.payment-history-page .summary-icon,.payment-history-page .status-badge { display:inline-flex; align-items:center; justify-content:center; }
+	.receipt-page .rc-kicker,.payment-history-page .rc-kicker { gap:8px; padding:8px 12px; border-radius:999px; background:var(--rc-primary-soft); color:var(--rc-primary-dark); font-size:12px; font-weight:900; text-transform:uppercase; }
+	.receipt-page h3,.receipt-page h4,.receipt-page h5,.payment-history-page h3,.payment-history-page h4,.payment-history-page h5 { color:var(--rc-ink); font-weight:900; }
+	.receipt-page .rc-card,.receipt-page .table-card,.payment-history-page .rc-card,.payment-history-page .table-card { border-radius:24px; overflow:hidden; margin-bottom:22px; }
+	.receipt-page .rc-card,.payment-history-page .rc-card { padding:24px; }
+	.receipt-page .form-label,.payment-history-page .form-label { color:var(--rc-ink); font-size:13px; font-weight:900; }
+	.receipt-page .form-select,.receipt-page .form-control,.payment-history-page .form-select,.payment-history-page .form-control { min-height:48px; padding-left:12px; border:1px solid rgba(148,163,184,.32); border-radius:15px; font-weight:800; box-shadow:none; }
+	.receipt-page .rc-btn,.payment-history-page .rc-btn { min-height:46px; border:0; border-radius:15px; background:linear-gradient(135deg,var(--rc-primary),var(--rc-primary-dark)); color:#fff; font-weight:900; box-shadow:0 14px 30px rgba(15,118,110,.22); }
+	.receipt-page .rc-btn:hover,.payment-history-page .rc-btn:hover { color:#fff; transform:translateY(-2px); }
+	.receipt-page .summary-card,.payment-history-page .summary-card { height:100%; padding:18px; border-radius:20px; }
+	.receipt-page .summary-icon,.payment-history-page .summary-icon { width:42px; height:42px; border-radius:14px; background:var(--rc-primary-soft); color:var(--rc-primary); }
+	.receipt-page .summary-icon.success,.payment-history-page .summary-icon.success{background:var(--rc-success-soft);color:var(--rc-success)}.receipt-page .summary-icon.warning,.payment-history-page .summary-icon.warning{background:var(--rc-warning-soft);color:#b45309}.receipt-page .summary-icon.blue,.payment-history-page .summary-icon.blue{background:var(--rc-blue-soft);color:var(--rc-blue)}.receipt-page .summary-icon.danger,.payment-history-page .summary-icon.danger{background:var(--rc-danger-soft);color:var(--rc-danger)}
+	.receipt-page .summary-card h4,.payment-history-page .summary-card h4 { margin:12px 0 2px; font-size:24px; font-weight:900; }
+	.receipt-page .toolbar,.payment-history-page .toolbar { padding:18px 20px; border-bottom:1px solid rgba(148,163,184,.2); background:linear-gradient(180deg,#f8fafc,#fff); }
+	.receipt-page .table-scroll,.payment-history-page .table-scroll { max-height:620px; overflow:auto; }
+	.receipt-page .receipt-table,.payment-history-page .receipt-table { min-width:1060px; margin-bottom:0; }
+	.receipt-page .receipt-table thead th,.payment-history-page .receipt-table thead th { position:sticky; top:0; z-index:2; padding:14px 10px; background:linear-gradient(135deg,var(--rc-primary),var(--rc-primary-dark)); color:#fff; border:0; font-size:12px; font-weight:900; text-transform:uppercase; }
+	.receipt-page .receipt-table td,.payment-history-page .receipt-table td { padding:12px 10px; vertical-align:middle; border-color:rgba(148,163,184,.2); font-weight:750; }
+	.receipt-page .status-badge,.payment-history-page .status-badge { gap:6px; padding:7px 10px; border-radius:999px; font-size:12px; font-weight:900; white-space:nowrap; }
+	.receipt-page .status-paid,.payment-history-page .status-paid{color:var(--rc-success);background:var(--rc-success-soft)}.receipt-page .status-cancelled,.payment-history-page .status-cancelled,.receipt-page .status-failed,.payment-history-page .status-failed{color:var(--rc-danger);background:var(--rc-danger-soft)}.receipt-page .status-refunded,.payment-history-page .status-refunded,.receipt-page .status-pending,.payment-history-page .status-pending{color:#b45309;background:var(--rc-warning-soft)}
+	.receipt-page .row-actions,.payment-history-page .row-actions { display:flex; gap:7px; flex-wrap:wrap; }
+	@media(max-width:767.98px){ .receipt-page .rc-hero,.receipt-page .rc-card,.payment-history-page .rc-hero,.payment-history-page .rc-card{padding:20px;border-radius:20px}.receipt-page .row-actions .btn,.receipt-page .rc-btn,.payment-history-page .row-actions .btn,.payment-history-page .rc-btn{width:100%} }
+</style>

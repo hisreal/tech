@@ -7,26 +7,32 @@ namespace App\Controllers;
 use App\Core\BaseController;
 use App\Core\Request;
 use App\Core\Response;
+use App\Models\SettingsModel;
 
 /**
- * Minimal landing controller proving the MVC foundation is wired correctly.
+ * Public marketing landing page.
  */
 final class HomeController extends BaseController
 {
     /**
-     * Displays the backend foundation status page.
+     * Displays the public landing page.
      */
     public function index(Request $request): Response
     {
+        $settings = (new SettingsModel())->all();
+        $brandName = $settings['school.name']['value'] ?? 'Zionex Solutions';
+        $logoPath = $settings['school.logo']['value'] ?? '';
+        $phone = (string) ($settings['school.phone']['value'] ?? '');
+        $whatsappNumber = preg_replace('/\D+/', '', $phone) ?? '';
+        if ($whatsappNumber !== '' && str_starts_with($whatsappNumber, '0')) {
+            $whatsappNumber = '234' . substr($whatsappNumber, 1);
+        }
+
         return $this->renderView('home', [
-            'title' => 'Backend Foundation Ready',
-            'modules' => [
-                'Authentication and RBAC',
-                'Academic Management',
-                'Students, Teachers, Accountants',
-                'Attendance, Results, CBT',
-                'Finance, Timetable, Reports, Audit Logs',
-            ],
+            'title' => $brandName . ' | School Management System',
+            'brandName' => $brandName,
+            'logoUrl' => $logoPath ? asset(ltrim((string) $logoPath, '/')) : asset('assets/img/logo/school-logo.png'),
+            'whatsappNumber' => $whatsappNumber,
         ]);
     }
 

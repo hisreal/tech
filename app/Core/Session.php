@@ -110,10 +110,80 @@ final class Session
     }
 
     /**
-     * Removes stale flash messages after they have survived one request.
+     * Stores the previous request's input for form repopulation after a
+     * validation failure (Laravel-style old input).
+     *
+     * @param array<string, mixed> $input
+     */
+    public static function flashInput(array $input): void
+    {
+        $_SESSION['_old_input'] = ['data' => $input, 'fresh' => true];
+    }
+
+    /**
+     * Returns a single value from the previously flashed input.
+     */
+    public static function old(string $key, mixed $default = null): mixed
+    {
+        return $_SESSION['_old_input']['data'][$key] ?? $default;
+    }
+
+    /**
+     * Returns all previously flashed input.
+     *
+     * @return array<string, mixed>
+     */
+    public static function oldAll(): array
+    {
+        return $_SESSION['_old_input']['data'] ?? [];
+    }
+
+    /**
+     * Stores validation errors for the next request.
+     *
+     * @param array<string, mixed> $errors
+     */
+    public static function flashErrors(array $errors): void
+    {
+        $_SESSION['_errors'] = ['data' => $errors, 'fresh' => true];
+    }
+
+    /**
+     * Returns validation errors flashed for this request.
+     *
+     * @return array<string, mixed>
+     */
+    public static function errors(): array
+    {
+        return $_SESSION['_errors']['data'] ?? [];
+    }
+
+    /**
+     * Returns true when validation errors were flashed for this request.
+     */
+    public static function hasErrors(): bool
+    {
+        return ($_SESSION['_errors']['data'] ?? []) !== [];
+    }
+
+    /**
+     * Removes stale flash messages, old input, and errors after they have
+     * survived one request.
      */
     private static function ageFlashMessages(): void
     {
+        foreach (['_old_input', '_errors'] as $key) {
+            if (!isset($_SESSION[$key])) {
+                continue;
+            }
+
+            if (($_SESSION[$key]['fresh'] ?? false) === false) {
+                unset($_SESSION[$key]);
+            } else {
+                $_SESSION[$key]['fresh'] = false;
+            }
+        }
+
         foreach ($_SESSION['_flash'] ?? [] as $type => $items) {
             foreach ($items as $index => $item) {
                 if (($item['fresh'] ?? false) === false) {

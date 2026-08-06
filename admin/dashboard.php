@@ -1,36 +1,55 @@
 <?php require_once('includes/header.php'); ?>
 
 <?php
-// Admin dashboard placeholder data. Replace these arrays with database queries during backend integration.
-$adminName = 'Administrator';
-$currentSession = sms_config('academic_session', '2025/2026');
-$currentTerm = sms_config('term', 'First Term');
+
+use App\Services\AcademicService;
+use App\Services\FinanceService;
+use App\Services\StudentService;
+use App\Services\TeacherService;
+
+$academicService = new AcademicService();
+$financeService = new FinanceService();
+$studentService = new StudentService();
+$teacherService = new TeacherService();
+
+$currentUser = sms_current_user();
+$adminName = (string) ($currentUser['full_name'] ?? $currentUser['username'] ?? 'Administrator');
+
+$sessions = $academicService->listSessions(['status' => 'active'], 1, 1);
+$currentSession = $sessions['data'][0]['name'] ?? 'Not set';
+$terms = $academicService->listTerms(['status' => 'active'], 1, 1);
+$currentTerm = $terms['data'][0]['name'] ?? 'Not set';
 $currentDate = date('l, j F Y');
+
+$totalStudents = $studentService->list([], 1, 1)['meta']['total'];
+$totalTeachers = $teacherService->list([], 1, 1)['meta']['total'];
+$totalClasses = $academicService->listClasses([], 1, 1)['meta']['total'];
+$totalSubjects = $academicService->listSubjects([], 1, 1)['meta']['total'];
+$financeSummary = $financeService->summary(date('Y-m-01'), date('Y-m-d'));
+
 $summaryCards = [
-    ['title' => 'Total Students', 'value' => '1,250', 'description' => 'Registered Students', 'icon' => 'fa-user-graduate', 'tone' => 'success'],
-    ['title' => 'Total Teachers', 'value' => '64', 'description' => 'Active Teachers', 'icon' => 'fa-chalkboard-user', 'tone' => 'blue'],
-    ['title' => 'Total Classes', 'value' => '36', 'description' => 'Configured Classes', 'icon' => 'fa-school', 'tone' => 'warning'],
-    ['title' => 'Total Subjects', 'value' => '48', 'description' => 'Approved Subjects', 'icon' => 'fa-book-open', 'tone' => 'success'],
-    ['title' => 'Fee Collected', 'value' => sms_money(8450000), 'description' => 'This Month', 'icon' => 'fa-sack-dollar', 'tone' => 'blue'],
-    ['title' => 'Outstanding Fees', 'value' => sms_money(2350000), 'description' => 'Unpaid Balances', 'icon' => 'fa-scale-unbalanced', 'tone' => 'danger'],
+    ['title' => 'Total Students', 'value' => number_format($totalStudents), 'description' => 'Registered Students', 'icon' => 'fa-user-graduate', 'tone' => 'success'],
+    ['title' => 'Total Teachers', 'value' => number_format($totalTeachers), 'description' => 'Active Teachers', 'icon' => 'fa-chalkboard-user', 'tone' => 'blue'],
+    ['title' => 'Total Classes', 'value' => number_format($totalClasses), 'description' => 'Configured Classes', 'icon' => 'fa-school', 'tone' => 'warning'],
+    ['title' => 'Total Subjects', 'value' => number_format($totalSubjects), 'description' => 'Approved Subjects', 'icon' => 'fa-book-open', 'tone' => 'success'],
+    ['title' => 'Fee Collected', 'value' => sms_money($financeSummary['revenue']), 'description' => 'This Month', 'icon' => 'fa-sack-dollar', 'tone' => 'blue'],
+    ['title' => 'Outstanding Fees', 'value' => sms_money($financeSummary['outstanding']), 'description' => 'Unpaid Balances', 'icon' => 'fa-scale-unbalanced', 'tone' => 'danger'],
 ];
 $quickActions = [
-    ['label' => 'Add Student', 'icon' => 'fa-user-plus', 'href' => 'students.php'],
-    ['label' => 'Add Teacher', 'icon' => 'fa-person-chalkboard', 'href' => 'teachers.php'],
+    ['label' => 'Add Student', 'icon' => 'fa-user-plus', 'href' => 'add-student.php'],
+    ['label' => 'Add Teacher', 'icon' => 'fa-person-chalkboard', 'href' => 'add-teacher.php'],
     ['label' => 'Collect School Fees', 'icon' => 'fa-cash-register', 'href' => '../accountant/fee-collection.php'],
-    ['label' => 'Publish Results', 'icon' => 'fa-square-poll-vertical', 'href' => 'result-management.php'],
-    ['label' => 'Create CBT Exam', 'icon' => 'fa-laptop-code', 'href' => 'cbt-management.php'],
+    ['label' => 'Publish Results', 'icon' => 'fa-square-poll-vertical', 'href' => 'results.php'],
+    ['label' => 'Create CBT Exam', 'icon' => 'fa-laptop-code', 'href' => 'cbt-exams.php'],
     ['label' => 'View Reports', 'icon' => 'fa-chart-pie', 'href' => '../accountant/financial-reports.php'],
 ];
-$enrollment = [
-    ['label' => 'JSS 1', 'value' => 220],
-    ['label' => 'JSS 2', 'value' => 205],
-    ['label' => 'JSS 3', 'value' => 198],
-    ['label' => 'SS 1', 'value' => 230],
-    ['label' => 'SS 2', 'value' => 210],
-    ['label' => 'SS 3', 'value' => 187],
-];
-$maxEnrollment = max(array_column($enrollment, 'value'));
+
+$reportsSummary = $studentService->reportsSummary([]);
+$enrollment = array_map(static fn (array $row): array => [
+    'label' => $row['class_name'] . ($row['section_name'] ? ' - ' . $row['section_name'] : ''),
+    'value' => (int) $row['total'],
+], $reportsSummary['by_class']);
+$maxEnrollment = $enrollment ? max(array_column($enrollment, 'value')) : 1;
 ?>
 
 <style>
@@ -106,12 +125,12 @@ $maxEnrollment = max(array_column($enrollment, 'value'));
         </div>
     </section>
 
-    <!-- Enrollment chart: simple CSS chart with placeholder data ready for database replacement. -->
+    <!-- Enrollment chart: real per-class enrollment for the current session. -->
     <section class="admin-card">
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
             <div>
                 <h4 class="mb-1">Student Enrollment by Class</h4>
-                <p class="text-muted mb-0">Placeholder enrollment distribution for the current academic session.</p>
+                <p class="text-muted mb-0">Real enrollment distribution for the current academic session.</p>
             </div>
             <span class="admin-kicker"><i class="fa-solid fa-chart-column"></i> Enrollment</span>
         </div>
@@ -122,6 +141,7 @@ $maxEnrollment = max(array_column($enrollment, 'value'));
                     <span class="bar-label"><?php echo sms_e($item['label']); ?></span>
                 </div>
             <?php endforeach; ?>
+            <?php if (!$enrollment): ?><p class="text-muted mb-0">No enrollment data for the current session yet.</p><?php endif; ?>
         </div>
     </section>
 </div>

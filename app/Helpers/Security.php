@@ -53,4 +53,36 @@ final class Security
     {
         return substr(bin2hex(random_bytes((int) ceil($length / 2))), 0, $length);
     }
+
+    /** Generates a random temporary password for newly created portal accounts. */
+    public static function temporaryPassword(int $length = 12): string
+    {
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$%';
+        $password = '';
+        $max = strlen($alphabet) - 1;
+
+        for ($i = 0; $i < $length; $i++) {
+            $password .= $alphabet[random_int(0, $max)];
+        }
+
+        return $password;
+    }
+
+    /**
+     * Returns true when a password meets the app-wide minimum strength
+     * policy: at least 8 characters, one uppercase, one lowercase, one digit.
+     */
+    public static function isStrongPassword(string $password): bool
+    {
+        return strlen($password) >= 8
+            && preg_match('/[A-Z]/', $password) === 1
+            && preg_match('/[a-z]/', $password) === 1
+            && preg_match('/[0-9]/', $password) === 1;
+    }
+
+    /** Returns the standard message describing the password policy. */
+    public static function passwordPolicyMessage(): string
+    {
+        return 'Use at least 8 characters with uppercase, lowercase, and a number.';
+    }
 }

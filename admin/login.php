@@ -4,7 +4,7 @@ $flashMessages = sms_flash();
 $oldIdentifier = $_SESSION['_old_login_identifier'] ?? '';
 unset($_SESSION['_old_login_identifier']);
 $schoolName = 'Brighter Future Standard School';
-$homeUrl = '../index.php';
+$homeUrl = '../';
 ?>
 <!doctype html>
 <html lang="en">
@@ -20,10 +20,7 @@ $homeUrl = '../index.php';
 <body class="auth-page">
     <main class="auth-shell">
         <header class="auth-topbar" aria-label="Login page header">
-            <a class="auth-brand" href="<?php echo sms_e($homeUrl); ?>">
-                <img src="../assets/img/logo/school-logo.png" alt="School Logo">
-                <span><strong><?php echo sms_e($schoolName); ?></strong>School Management System</span>
-            </a>
+           
             <a class="auth-back" href="<?php echo sms_e($homeUrl); ?>"><i class="fa-solid fa-arrow-left"></i><span>Back</span></a>
         </header>
 
@@ -33,7 +30,6 @@ $homeUrl = '../index.php';
                 <h1>Secure access to a smarter school portal.</h1>
                 <p>Manage learning, records, payments, reports, and communication through a modern role-based system built for professional school operations.</p>
                 <div class="auth-visual">
-                    <div class="auth-visual-card"><img src="../assets/img/auth/auth-1.svg" alt="Education portal illustration"></div>
                     <div class="auth-stat-stack">
                         <div class="auth-stat"><i class="fa-solid fa-shield-halved"></i><strong>Secure</strong><span>Role based access</span></div>
                         <div class="auth-stat"><i class="fa-solid fa-chart-line"></i><strong>Live</strong><span>Ready for data</span></div>

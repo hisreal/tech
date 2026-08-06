@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Database;
+use App\Helpers\Security;
 
 /**
  * Handles Excel-compatible CSV student import validation and persistence.
@@ -113,7 +114,7 @@ final class StudentImportService
                     continue;
                 }
 
-                $password = $this->temporaryPassword();
+                $password = Security::temporaryPassword();
                 $registrationNo = (string) $data['registration_no'];
 
                 $this->db->execute(
@@ -280,16 +281,6 @@ final class StudentImportService
         return $row ? (int) $row['id'] : null;
     }
 
-    private function temporaryPassword(): string
-    {
-        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$%';
-        $password = '';
-        $max = strlen($alphabet) - 1;
-        for ($i = 0; $i < 12; $i++) {
-            $password .= $alphabet[random_int(0, $max)];
-        }
-        return $password;
-    }
 
     /** @param array<int, array<int, string>> $rows */
     private function csvString(array $rows): string

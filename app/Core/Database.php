@@ -16,6 +16,7 @@ final class Database
     private static ?self $instance = null;
     private ?PDO $pdo = null;
     private ?PDOStatement $statement = null;
+    private int $transactionLevel = 0;
 
     /** @param array<string, mixed> $config */
     private function __construct(private array $config)
@@ -118,27 +119,72 @@ final class Database
     }
 
     /**
-     * Starts a transaction.
+     * Starts a transaction, or a savepoint when one is already active so
+     * nested transaction()/beginTransaction() calls across composed services
+     * don't throw "there is already an active transaction".
      */
     public function beginTransaction(): bool
     {
-        return $this->connection()->beginTransaction();
+        if ($this->transactionLevel === 0) {
+            $result = $this->connection()->beginTransaction();
+        } else {
+            $this->connection()->exec('SAVEPOINT trans' . $this->transactionLevel);
+            $result = true;
+        }
+
+        $this->transactionLevel++;
+
+        return $result;
     }
 
     /**
-     * Commits a transaction.
+     * Commits the current transaction, or releases the current savepoint
+     * when nested.
      */
     public function commit(): bool
     {
-        return $this->connection()->commit();
+        if ($this->transactionLevel === 0) {
+            return false;
+        }
+
+        $this->transactionLevel--;
+
+        if ($this->transactionLevel === 0) {
+            return $this->connection()->commit();
+        }
+
+        $this->connection()->exec('RELEASE SAVEPOINT trans' . $this->transactionLevel);
+
+        return true;
     }
 
     /**
-     * Rolls back a transaction if active.
+     * Rolls back the current transaction, or to the current savepoint when
+     * nested, if a transaction is active.
      */
     public function rollBack(): bool
     {
-        return $this->connection()->inTransaction() && $this->connection()->rollBack();
+        if ($this->transactionLevel === 0) {
+            return false;
+        }
+
+        $this->transactionLevel--;
+
+        if ($this->transactionLevel === 0) {
+            return $this->connection()->inTransaction() && $this->connection()->rollBack();
+        }
+
+        $this->connection()->exec('ROLLBACK TO SAVEPOINT trans' . $this->transactionLevel);
+
+        return true;
+    }
+
+    /**
+     * Returns true when a transaction (top-level or nested) is active.
+     */
+    public function inTransaction(): bool
+    {
+        return $this->transactionLevel > 0;
     }
 
     /**

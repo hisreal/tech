@@ -14,6 +14,14 @@ if (!function_exists('app_config')) {
     }
 }
 
+if (!function_exists('config')) {
+    /** Laravel-style alias for app_config(), for readability in new code. */
+    function config(string $key, mixed $default = null): mixed
+    {
+        return app_config($key, $default);
+    }
+}
+
 if (!function_exists('e')) {
     /** Escapes text for HTML output. */
     function e(mixed $value): string
@@ -31,10 +39,22 @@ if (!function_exists('url')) {
 }
 
 if (!function_exists('asset')) {
-    /** Generates an absolute asset URL. */
+    /**
+     * Generates an absolute asset URL, cache-busted with the file's last
+     * modified time so edits (CSS/JS/images) are always picked up instead
+     * of serving a stale cached copy on repeat visits.
+     */
     function asset(string $path): string
     {
-        return url($path);
+        $relative = ltrim($path, '/');
+        $absolute = url($relative);
+        $filePath = app_config('root_path') . '/' . $relative;
+
+        if (is_file($filePath)) {
+            $absolute .= (str_contains($absolute, '?') ? '&' : '?') . 'v=' . filemtime($filePath);
+        }
+
+        return $absolute;
     }
 }
 

@@ -45,13 +45,14 @@ final class ProfileService
 
         $this->db->beginTransaction();
         try {
-            if ($file && (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            if ($role !== 'student' && $file && (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
                 $photo = $this->replacePhoto($userId, $role, $file);
             }
             $this->db->execute('UPDATE users SET email = :email WHERE id = :id', ['email' => $email, 'id' => $userId]);
             $params = $this->params($userId, $data, $name, $photo, $email);
             if ($role === 'student') {
-                $sql = 'UPDATE students SET first_name=:first_name,last_name=:last_name,email=:email,phone=:phone,gender=:gender,date_of_birth=:date_of_birth,address=:address,religion=:religion,nationality=:nationality,state=:state,local_government=:local_government,emergency_contact=:emergency_contact' . ($photo ? ',passport_path=:photo' : '') . ' WHERE user_id=:user_id';
+                unset($params['first_name'], $params['last_name']);
+                $sql = 'UPDATE students SET email=:email,phone=:phone,gender=:gender,date_of_birth=:date_of_birth,address=:address,religion=:religion,nationality=:nationality,state=:state,local_government=:local_government,emergency_contact=:emergency_contact' . ($photo ? ',passport_path=:photo' : '') . ' WHERE user_id=:user_id';
             } else {
                 $this->ensureStaff($userId, $role, $name);
                 $sql = 'UPDATE staff SET first_name=:first_name,last_name=:last_name,email=:email,phone=:phone,gender=:gender,date_of_birth=:date_of_birth,address=:address' . ($photo ? ',passport_path=:photo' : '') . ' WHERE user_id=:user_id';
@@ -100,9 +101,20 @@ final class ProfileService
     /** @return array<string,mixed> */
     private function student(int $userId): array
     {
-        $row = $this->db->fetchOne("SELECT s.*, CONCAT(s.first_name,' ',s.last_name) full_name, c.name class_name, sec.name section_name, se.enrolled_at admission_date, g.full_name guardian_name, g.phone guardian_phone FROM students s LEFT JOIN student_enrollments se ON se.student_id=s.id AND se.status='active' LEFT JOIN classes c ON c.id=se.class_id LEFT JOIN sections sec ON sec.id=se.section_id LEFT JOIN student_guardians sg ON sg.student_id=s.id AND sg.is_primary=1 LEFT JOIN guardians g ON g.id=sg.guardian_id WHERE s.user_id=:id LIMIT 1", ['id' => $userId]) ?? [];
+        $row = $this->db->fetchOne("SELECT s.*, CONCAT(s.first_name,' ',s.last_name) full_name, c.name class_name, sec.name section_name, ses.name session_name, se.enrolled_at admission_date, g.full_name guardian_name, g.phone guardian_phone FROM students s LEFT JOIN student_enrollments se ON se.student_id=s.id AND se.status='active' LEFT JOIN classes c ON c.id=se.class_id LEFT JOIN sections sec ON sec.id=se.section_id LEFT JOIN academic_sessions ses ON ses.id=se.session_id LEFT JOIN student_guardians sg ON sg.student_id=s.id AND sg.is_primary=1 LEFT JOIN guardians g ON g.id=sg.guardian_id WHERE s.user_id=:id LIMIT 1", ['id' => $userId]) ?? [];
         $completion = $row ? $this->completionService->sync($row) : ['status' => 'incomplete', 'percentage' => 0, 'missing' => ProfileCompletionService::REQUIRED_STUDENT_FIELDS, 'complete' => false];
-        return array_merge($row, ['profile_photo' => $this->photo($row['passport_path'] ?? ''), 'display_id' => $row['registration_no'] ?? '', 'position' => 'Student', 'department' => trim((string) (($row['class_name'] ?? '') . ' ' . ($row['section_name'] ?? ''))), 'assigned_classes' => [], 'subjects' => [], 'profile_completion' => $completion]);
+        return array_merge($row, ['profile_photo' => $this->photo($row['passport_path'] ?? ''), 'display_id' => $row['registration_no'] ?? '', 'position' => 'Student', 'department' => trim((string) (($row['class_name'] ?? '') . ' ' . ($row['section_name'] ?? ''))), 'assigned_classes' => [], 'subjects' => [], 'profile_completion' => $completion, 'term_name' => $this->currentTermName()]);
+    }
+
+    private function currentTermName(): string
+    {
+        $row = $this->db->fetchOne("SELECT setting_value FROM school_settings WHERE setting_key = 'academic.current_term_id'");
+        $termId = $row ? (int) $row['setting_value'] : 0;
+        $term = $termId > 0
+            ? $this->db->fetchOne('SELECT name FROM terms WHERE id = :id', ['id' => $termId])
+            : $this->db->fetchOne("SELECT name FROM terms WHERE status = 'active' ORDER BY id DESC LIMIT 1");
+
+        return (string) ($term['name'] ?? '');
     }
 
     /** @return array<string,mixed> */

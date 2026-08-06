@@ -58,7 +58,6 @@ if ($isStudent) {
     $roleSpecific = [
         ['Registration Number', $profile['registration_no'] ?? '', 'fa-id-card'],
         ['Admission Number', $profile['admission_no'] ?? '', 'fa-address-card'],
-        ['Class', $profile['class_name'] ?? '', 'fa-school'],
         ['Section / Arm', $profile['section_name'] ?? '', 'fa-layer-group'],
         ['Parent / Guardian', $profile['guardian_name'] ?? '', 'fa-user-shield'],
         ['Parent Phone', $profile['guardian_phone'] ?? '', 'fa-phone'],
@@ -78,13 +77,15 @@ if ($isStudent) {
 $commonFields = [
     ['Full Name', $fullName, 'fa-user'],
     ['Username', $profile['username'] ?? '', 'fa-user-lock'],
-    ['Email Address', $email, 'fa-envelope'],
-    ['Phone Number', $phone, 'fa-phone'],
-    ['Gender', $gender, 'fa-venus-mars'],
-    ['Date of Birth', $dob, 'fa-cake-candles'],
-    ['Address', $address, 'fa-location-dot'],
-    ['Account Status', $status, 'fa-circle-check'],
 ];
+if (!$isStudent) {
+    $commonFields[] = ['Email Address', $email, 'fa-envelope'];
+}
+$commonFields[] = ['Phone Number', $phone, 'fa-phone'];
+$commonFields[] = ['Gender', $gender, 'fa-venus-mars'];
+$commonFields[] = ['Date of Birth', $dob, 'fa-cake-candles'];
+$commonFields[] = ['Address', $address, 'fa-location-dot'];
+$commonFields[] = ['Account Status', $status, 'fa-circle-check'];
 if ($isStudent) {
     $commonFields[] = ['Religion', $religion, 'fa-hands-praying'];
     $commonFields[] = ['Nationality', $nationality, 'fa-flag'];
@@ -123,6 +124,11 @@ require_once __DIR__ . '/../' . $profilePortal . '/includes/header.php';
                         <h3 class="mt-3 mb-1"><?php echo sms_e($fullName); ?></h3>
                         <p class="text-muted fw-bold mb-2"><?php echo sms_e($profile['display_id'] ?? $profile['username'] ?? ''); ?></p>
                         <span class="status-chip"><i class="fa-solid fa-circle-check"></i><?php echo sms_e(ucfirst($status)); ?></span>
+                        <?php if ($isStudent): ?>
+                            <span class="role-chip mt-2"><i class="fa-solid fa-calendar-days"></i><?php echo sms_e($profile['session_name'] ?? 'Not set'); ?></span>
+                            <span class="role-chip mt-2"><i class="fa-solid fa-calendar-week"></i><?php echo sms_e($profile['term_name'] ?? 'Not set'); ?></span>
+                            <span class="role-chip mt-2"><i class="fa-solid fa-school"></i><?php echo sms_e($profile['class_name'] ?? 'Not set'); ?></span>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -145,7 +151,7 @@ require_once __DIR__ . '/../' . $profilePortal . '/includes/header.php';
         </div>
     <?php endif; ?>
 
-    <?php $sections = [['Common Information', $commonFields], ['Role Information', $roleSpecific], ['Account Information', $accountFields]]; ?>
+    <?php $sections = [['Common Information', $commonFields], ['Role Information', $roleSpecific]]; if (!$isStudent) { $sections[] = ['Account Information', $accountFields]; } ?>
     <?php foreach ($sections as $section): ?>
         <section class="profile-card">
             <h4 class="mb-3"><?php echo sms_e($section[0]); ?></h4>
@@ -172,7 +178,7 @@ require_once __DIR__ . '/../' . $profilePortal . '/includes/header.php';
         <form method="post" enctype="multipart/form-data" class="row g-3" id="profileForm">
             <input type="hidden" name="_token" value="<?php echo sms_e(sms_csrf_token()); ?>">
             <input type="hidden" name="profile_action" value="update_profile">
-            <div class="col-md-8"><label class="form-label">Full Name</label><input class="form-control" name="full_name" value="<?php echo sms_e($fullName); ?>" required><?php if(isset($errors['full_name'])): ?><div class="error-text"><?php echo sms_e($errors['full_name']); ?></div><?php endif; ?></div>
+            <div class="col-md-8"><label class="form-label">Full Name</label><input class="form-control" name="full_name" value="<?php echo sms_e($fullName); ?>" required<?php echo $isStudent ? ' readonly' : ''; ?>><?php if ($isStudent): ?><div class="completion-missing mt-1">Contact the school administrator to change your name.</div><?php endif; ?><?php if(isset($errors['full_name'])): ?><div class="error-text"><?php echo sms_e($errors['full_name']); ?></div><?php endif; ?></div>
             <div class="col-md-4"><label class="form-label">Gender</label><select class="form-select" name="gender"><option value="">Select</option><?php foreach(['male','female','other'] as $option): ?><option value="<?php echo $option; ?>" <?php echo strtolower($gender)===$option?'selected':''; ?>><?php echo ucfirst($option); ?></option><?php endforeach; ?></select></div>
             <div class="col-md-6"><label class="form-label">Email</label><input type="email" class="form-control" name="email" value="<?php echo sms_e($email); ?>"><?php if(isset($errors['email'])): ?><div class="error-text"><?php echo sms_e($errors['email']); ?></div><?php endif; ?></div>
             <div class="col-md-6"><label class="form-label">Phone</label><input class="form-control" name="phone" value="<?php echo sms_e($phone); ?>"><?php if(isset($errors['phone'])): ?><div class="error-text"><?php echo sms_e($errors['phone']); ?></div><?php endif; ?></div>
@@ -184,7 +190,7 @@ require_once __DIR__ . '/../' . $profilePortal . '/includes/header.php';
                 <div class="col-md-6"><label class="form-label">Local Government Area</label><input class="form-control" name="local_government" value="<?php echo sms_e($localGovernment); ?>"></div>
                 <div class="col-md-6"><label class="form-label">Emergency Contact</label><input class="form-control" name="emergency_contact" value="<?php echo sms_e($emergencyContact); ?>"></div>
             <?php endif; ?>
-            <div class="col-md-6"><label class="form-label">Profile Photo</label><div class="d-flex align-items-center gap-3"><img src="<?php echo sms_e($photo); ?>" id="photoPreview" class="preview-img" alt="Preview"><input type="file" class="form-control" name="profile_photo" id="profilePhoto" accept="image/png,image/jpeg,image/webp"></div></div>
+            <div class="col-md-6"><label class="form-label">Profile Photo</label><div class="d-flex align-items-center gap-3"><img src="<?php echo sms_e($photo); ?>" id="photoPreview" class="preview-img" alt="Preview"><?php if ($isStudent): ?><span class="completion-missing">Contact the school administrator to change your passport photo.</span><?php else: ?><input type="file" class="form-control" name="profile_photo" id="profilePhoto" accept="image/png,image/jpeg,image/webp"><?php endif; ?></div></div>
             <div class="col-12"><label class="form-label">Address</label><textarea class="form-control" name="address" rows="3"><?php echo sms_e($address); ?></textarea></div>
             <div class="col-12"><button class="btn main-btn px-4" type="submit"><i class="fa-solid fa-floppy-disk me-2"></i>Save Profile</button></div>
         </form>

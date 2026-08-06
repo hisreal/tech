@@ -1,0 +1,7 @@
+{"timestamp":"2026-07-30T09:22:52+01:00","channel":"security","message":"Blocked cross-portal login.","context":{"user_id":1,"portal":"student","roles":["super-admin"]}}
+{"timestamp":"2026-07-30T09:23:10+01:00","channel":"security","message":"Failed login attempt.","context":{"identifier":"admin","portal":"student"}}
+{"timestamp":"2026-07-30T09:23:27+01:00","channel":"security","message":"Failed login attempt.","context":{"identifier":"admin@school.test","portal":"student"}}
+{"timestamp":"2026-07-30T09:23:37+01:00","channel":"security","message":"Failed login attempt.","context":{"identifier":"admin@school.test","portal":"student"}}
+{"timestamp":"2026-07-30T09:24:10+01:00","channel":"security","message":"Failed login attempt.","context":{"identifier":"admin@school.test","portal":"student"}}
+{"timestamp":"2026-07-30T09:27:38+01:00","channel":"security","message":"Failed login attempt.","context":{"identifier":"admin@umachi.com","portal":"admin"}}
+{"timestamp":"2026-07-30T09:27:50+01:00","channel":"login","message":"User logged in.","context":{"user_id":1,"ip_address":"::1"}}

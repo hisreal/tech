@@ -1,5 +1,16 @@
 <?php require_once('includes/header.php'); ?>
 
+<?php
+
+use App\Services\ResultService;
+
+$resultService = new ResultService();
+$sessions = $resultService->sessionsForSelect();
+$terms = $resultService->termsForSelect();
+$defaultSessionId = $resultService->currentSessionId();
+$defaultTermId = $resultService->currentTermId();
+?>
+
 <style>
 	/* Check Result module: scoped styles keep this page independent from other dashboard modules. */
 	.check-result-page {
@@ -206,7 +217,7 @@
 		<section class="result-hero">
 			<span class="result-kicker"><i class="fa-solid fa-chart-line"></i> Student Results</span>
 			<h3>Check Academic Result</h3>
-			<p>Select your academic session, term, and class to open the matching report card. These values are passed forward for future database integration.</p>
+			<p>Select your academic session and term to open your report card.</p>
 		</section>
 
 		<!-- Result checking form: validates selections and redirects to the printable report card. -->
@@ -215,53 +226,38 @@
 				<span class="result-icon"><i class="fa-solid fa-file-circle-check"></i></span>
 				<div>
 					<h4>Result Details</h4>
-					<p>Choose all fields before checking your result.</p>
+					<p>Choose your academic session and term before checking your result.</p>
 				</div>
 			</div>
 
 			<form id="checkResultForm" novalidate>
 				<div class="validation-message" id="resultValidation" role="alert">
 					<i class="fa-solid fa-circle-exclamation"></i>
-					<span>Please select Academic Session, Term, and Class before checking your result.</span>
+					<span>Please select Academic Session and Term before checking your result.</span>
 				</div>
 
 				<div class="mb-3">
 					<label class="form-label" for="academicSession">Academic Session</label>
 					<div class="select-wrap">
 						<span class="select-icon"><i class="fa-solid fa-calendar-days"></i></span>
-						<select class="form-select" id="academicSession" name="session" required>
+						<select class="form-select" id="academicSession" name="session_id" required>
 							<option value="">Select academic session</option>
-							<option value="2025/2026">2025/2026</option>
-							<option value="2026/2027">2026/2027</option>
-						</select>
-					</div>
-				</div>
-
-				<div class="mb-3">
-					<label class="form-label" for="term">Term</label>
-					<div class="select-wrap">
-						<span class="select-icon"><i class="fa-solid fa-book-open"></i></span>
-						<select class="form-select" id="term" name="term" required>
-							<option value="">Select term</option>
-							<option value="First Term">First Term</option>
-							<option value="Second Term">Second Term</option>
-							<option value="Third Term">Third Term</option>
+							<?php foreach ($sessions as $s): ?>
+								<option value="<?php echo (int) $s['id']; ?>" <?php echo $defaultSessionId === (int) $s['id'] ? 'selected' : ''; ?>><?php echo sms_e($s['name']); ?></option>
+							<?php endforeach; ?>
 						</select>
 					</div>
 				</div>
 
 				<div class="mb-4">
-					<label class="form-label" for="studentClass">Class</label>
+					<label class="form-label" for="term">Term</label>
 					<div class="select-wrap">
-						<span class="select-icon"><i class="fa-solid fa-school"></i></span>
-						<select class="form-select" id="studentClass" name="class" required>
-							<option value="">Select class</option>
-							<option value="JSS 1">JSS 1</option>
-							<option value="JSS 2">JSS 2</option>
-							<option value="JSS 3">JSS 3</option>
-							<option value="SS 1">SS 1</option>
-							<option value="SS 2">SS 2</option>
-							<option value="SS 3">SS 3</option>
+						<span class="select-icon"><i class="fa-solid fa-book-open"></i></span>
+						<select class="form-select" id="term" name="term_id" required>
+							<option value="">Select term</option>
+							<?php foreach ($terms as $t): ?>
+								<option value="<?php echo (int) $t['id']; ?>" <?php echo $defaultTermId === (int) $t['id'] ? 'selected' : ''; ?>><?php echo sms_e($t['name']); ?></option>
+							<?php endforeach; ?>
 						</select>
 					</div>
 				</div>
@@ -271,7 +267,7 @@
 				</button>
 			</form>
 
-			<p class="result-note"><i class="fa-solid fa-lock me-1"></i> Result selection is prepared for secure PHP/database validation later.</p>
+			<p class="result-note"><i class="fa-solid fa-lock me-1"></i> Your report card is generated from your own published results.</p>
 		</section>
 	</div>
 </div>
@@ -285,9 +281,8 @@
 		var validation = document.getElementById('resultValidation');
 		var session = document.getElementById('academicSession');
 		var term = document.getElementById('term');
-		var studentClass = document.getElementById('studentClass');
 
-		if (!form || !validation || !session || !term || !studentClass) {
+		if (!form || !validation || !session || !term) {
 			return;
 		}
 
@@ -303,23 +298,22 @@
 		form.addEventListener('submit', function (event) {
 			event.preventDefault();
 
-			if (!session.value || !term.value || !studentClass.value) {
-				showValidation('Please select Academic Session, Term, and Class before checking your result.');
+			if (!session.value || !term.value) {
+				showValidation('Please select Academic Session and Term before checking your result.');
 				return;
 			}
 
 			hideValidation();
 
 			var params = new URLSearchParams({
-				session: session.value,
-				term: term.value,
-				class: studentClass.value
+				session_id: session.value,
+				term_id: term.value
 			});
 
-			window.location.href = 'report-card.html?' + params.toString();
+			window.location.href = 'report-card.php?' + params.toString();
 		});
 
-		[session, term, studentClass].forEach(function (field) {
+		[session, term].forEach(function (field) {
 			field.addEventListener('change', hideValidation);
 		});
 	}());

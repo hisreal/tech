@@ -839,6 +839,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   actor_user_id BIGINT UNSIGNED NULL,
   module VARCHAR(80) NOT NULL,
   action VARCHAR(80) NOT NULL,
+  status ENUM('success','failed','warning') NOT NULL DEFAULT 'success',
   entity_table VARCHAR(80) NULL,
   entity_id BIGINT UNSIGNED NULL,
   old_values JSON NULL,
@@ -849,6 +850,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   KEY idx_audit_actor_time (actor_user_id, created_at),
   KEY idx_audit_module_action (module, action),
   KEY idx_audit_entity (entity_table, entity_id),
+  KEY idx_audit_status (status),
   CONSTRAINT fk_audit_logs_actor FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -1045,6 +1047,127 @@ CREATE TABLE IF NOT EXISTS remember_tokens (
   KEY idx_remember_tokens_user (user_id),
   KEY idx_remember_tokens_expiry (expires_at),
   CONSTRAINT fk_remember_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- Payroll: salary structures, allowances, deductions, payroll runs, payslips, payments
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS salary_structures (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  staff_id BIGINT UNSIGNED NOT NULL,
+  basic_salary DECIMAL(12,2) NOT NULL,
+  effective_date DATE NOT NULL,
+  status ENUM('active','inactive') DEFAULT 'active',
+  created_by BIGINT UNSIGNED NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_salary_structures_staff (staff_id, status),
+  CONSTRAINT fk_salary_structures_staff FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE,
+  CONSTRAINT fk_salary_structures_user FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS allowance_types (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  calculation_type ENUM('fixed','percentage') DEFAULT 'fixed',
+  default_amount DECIMAL(12,2) DEFAULT 0.00,
+  status ENUM('active','inactive') DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_allowance_type_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS deduction_types (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  calculation_type ENUM('fixed','percentage') DEFAULT 'fixed',
+  default_amount DECIMAL(12,2) DEFAULT 0.00,
+  status ENUM('active','inactive') DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_deduction_type_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS staff_allowances (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  staff_id BIGINT UNSIGNED NOT NULL,
+  allowance_type_id BIGINT UNSIGNED NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  status ENUM('active','inactive') DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_staff_allowance (staff_id, allowance_type_id),
+  CONSTRAINT fk_staff_allowances_staff FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE,
+  CONSTRAINT fk_staff_allowances_type FOREIGN KEY (allowance_type_id) REFERENCES allowance_types(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS staff_deductions (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  staff_id BIGINT UNSIGNED NOT NULL,
+  deduction_type_id BIGINT UNSIGNED NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  status ENUM('active','inactive') DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_staff_deduction (staff_id, deduction_type_id),
+  CONSTRAINT fk_staff_deductions_staff FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE,
+  CONSTRAINT fk_staff_deductions_type FOREIGN KEY (deduction_type_id) REFERENCES deduction_types(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS payroll_runs (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  period_month TINYINT UNSIGNED NOT NULL,
+  period_year SMALLINT UNSIGNED NOT NULL,
+  status ENUM('draft','processed','paid') DEFAULT 'draft',
+  processed_by BIGINT UNSIGNED NULL,
+  processed_at DATETIME NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_payroll_run_period (period_month, period_year),
+  CONSTRAINT fk_payroll_runs_user FOREIGN KEY (processed_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS payslips (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  payroll_run_id BIGINT UNSIGNED NOT NULL,
+  staff_id BIGINT UNSIGNED NOT NULL,
+  basic_salary DECIMAL(12,2) NOT NULL,
+  total_allowances DECIMAL(12,2) DEFAULT 0.00,
+  total_deductions DECIMAL(12,2) DEFAULT 0.00,
+  net_pay DECIMAL(12,2) NOT NULL,
+  status ENUM('draft','generated','paid','cancelled') DEFAULT 'draft',
+  paid_at DATETIME NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_payslip_run_staff (payroll_run_id, staff_id),
+  CONSTRAINT fk_payslips_run FOREIGN KEY (payroll_run_id) REFERENCES payroll_runs(id) ON DELETE CASCADE,
+  CONSTRAINT fk_payslips_staff FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS payslip_items (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  payslip_id BIGINT UNSIGNED NOT NULL,
+  item_type ENUM('allowance','deduction') NOT NULL,
+  label VARCHAR(120) NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_payslip_items_payslip (payslip_id),
+  CONSTRAINT fk_payslip_items_payslip FOREIGN KEY (payslip_id) REFERENCES payslips(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS payroll_payments (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  payslip_id BIGINT UNSIGNED NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  payment_method ENUM('bank_transfer','cash','cheque') DEFAULT 'bank_transfer',
+  reference_no VARCHAR(80) NULL,
+  paid_by BIGINT UNSIGNED NULL,
+  paid_at DATETIME NOT NULL,
+  notes TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_payroll_payments_payslip (payslip_id),
+  CONSTRAINT fk_payroll_payments_payslip FOREIGN KEY (payslip_id) REFERENCES payslips(id) ON DELETE CASCADE,
+  CONSTRAINT fk_payroll_payments_user FOREIGN KEY (paid_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 SET FOREIGN_KEY_CHECKS = 1;
 

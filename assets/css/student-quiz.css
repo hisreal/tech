@@ -231,7 +231,6 @@
 .student-exam-module .exam-timer.danger { background: #991b1b; }
 
 .student-exam-module .exam-result-card {
-  display: none;
   padding: 30px;
   text-align: center;
   animation: examFadeUp 0.4s ease both;

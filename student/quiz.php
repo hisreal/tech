@@ -1,7 +1,18 @@
 <?php require_once('includes/header.php'); ?>
+<?php
+
+use App\Services\CBTService;
+
+$cbtService = new CBTService();
+$currentUser = sms_current_user();
+$studentId = $cbtService->studentIdForUser((int) $currentUser['id']);
+
+$exams = $studentId ? $cbtService->availableExamsForStudent($studentId) : [];
+$stats = $studentId ? $cbtService->studentAttemptStats($studentId) : ['completed' => 0, 'best_score' => 0];
+$avgDuration = $exams ? round(array_sum(array_column($exams, 'duration_minutes')) / count($exams)) : 0;
+?>
 
 <div class="student-exam-module">
-	<!-- Quiz dashboard hero: summarizes the student's examination area. -->
 	<section class="exam-hero">
 		<div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
 			<div>
@@ -13,65 +24,71 @@
 		</div>
 	</section>
 
+	<?php foreach (sms_flash() as $type => $messages): ?>
+		<?php foreach ($messages as $message): ?>
+			<div class="alert alert-<?php echo $type === 'error' ? 'danger' : 'success'; ?>" role="alert"><?php echo sms_e($message); ?></div>
+		<?php endforeach; ?>
+	<?php endforeach; ?>
+
 	<section class="row g-3 mb-4" aria-label="Quiz overview">
 		<div class="col-sm-6 col-xl-3">
 			<div class="exam-stat-card d-flex align-items-center gap-3">
 				<span class="exam-stat-icon"><i class="fa-solid fa-clipboard-list"></i></span>
-				<div><span class="text-muted d-block">Available</span><h4 class="mb-0">6</h4></div>
+				<div><span class="text-muted d-block">Available</span><h4 class="mb-0"><?php echo count($exams); ?></h4></div>
 			</div>
 		</div>
 		<div class="col-sm-6 col-xl-3">
 			<div class="exam-stat-card d-flex align-items-center gap-3">
 				<span class="exam-stat-icon"><i class="fa-solid fa-clock"></i></span>
-				<div><span class="text-muted d-block">Average Time</span><h4 class="mb-0">25m</h4></div>
+				<div><span class="text-muted d-block">Average Duration</span><h4 class="mb-0"><?php echo $avgDuration; ?>m</h4></div>
 			</div>
 		</div>
 		<div class="col-sm-6 col-xl-3">
 			<div class="exam-stat-card d-flex align-items-center gap-3">
 				<span class="exam-stat-icon"><i class="fa-solid fa-circle-check"></i></span>
-				<div><span class="text-muted d-block">Completed</span><h4 class="mb-0">3</h4></div>
+				<div><span class="text-muted d-block">Completed</span><h4 class="mb-0"><?php echo $stats['completed']; ?></h4></div>
 			</div>
 		</div>
 		<div class="col-sm-6 col-xl-3">
 			<div class="exam-stat-card d-flex align-items-center gap-3">
 				<span class="exam-stat-icon"><i class="fa-solid fa-award"></i></span>
-				<div><span class="text-muted d-block">Best Score</span><h4 class="mb-0">92%</h4></div>
+				<div><span class="text-muted d-block">Best Score</span><h4 class="mb-0"><?php echo $stats['best_score']; ?>%</h4></div>
 			</div>
 		</div>
 	</section>
 
-	<!-- Quiz cards: clear metadata and a direct start action for each assessment. -->
 	<section class="row g-4" aria-label="Available quizzes">
-		<?php
-			$quizzes = [
-				['title' => 'Information About UI/UX Design Degree', 'subject' => 'Design', 'description' => 'Test your understanding of design process, usability, and interface fundamentals.', 'duration' => '20 Minutes', 'questions' => 5, 'level' => 'Beginner'],
-				['title' => 'JavaScript and Express Essentials', 'subject' => 'Computer Studies', 'description' => 'Practice core JavaScript concepts, server basics, and Express routing.', 'duration' => '35 Minutes', 'questions' => 10, 'level' => 'Intermediate'],
-				['title' => 'Introduction to Python Programming', 'subject' => 'Programming', 'description' => 'Review variables, conditions, functions, and foundational Python syntax.', 'duration' => '30 Minutes', 'questions' => 8, 'level' => 'Beginner'],
-				['title' => 'Responsive Websites with HTML5 and CSS3', 'subject' => 'Web Design', 'description' => 'Assess your knowledge of semantic markup, layout, and responsive styling.', 'duration' => '25 Minutes', 'questions' => 5, 'level' => 'Practical'],
-				['title' => 'Photoshop Design Fundamentals', 'subject' => 'Creative Arts', 'description' => 'Answer questions on image editing, layers, selection tools, and export settings.', 'duration' => '30 Minutes', 'questions' => 10, 'level' => 'Intermediate'],
-				['title' => 'C# Development with Visual Studio', 'subject' => 'Software Development', 'description' => 'Evaluate your understanding of C# syntax, debugging, and project workflow.', 'duration' => '25 Minutes', 'questions' => 7, 'level' => 'Advanced'],
-			];
-		?>
-		<?php foreach ($quizzes as $index => $quiz): ?>
+		<?php foreach ($exams as $exam): ?>
+			<?php
+			$remaining = max(0, (int) $exam['maximum_attempts'] - (int) $exam['attempts_used']);
+			$canStart = $remaining > 0 || $exam['in_progress_attempt_id'];
+			?>
 			<div class="col-md-6 col-xl-4">
 				<article class="exam-card">
 					<div class="d-flex align-items-start justify-content-between gap-3 mb-3">
 						<span class="exam-card-icon"><i class="fa-solid fa-book-open-reader"></i></span>
-						<span class="exam-chip"><i class="fa-solid fa-layer-group"></i><?php echo $quiz['level']; ?></span>
+						<span class="exam-chip"><i class="fa-solid fa-layer-group"></i><?php echo (int) $exam['question_count']; ?> Questions</span>
 					</div>
-					<h5 class="mb-2"><?php echo $quiz['title']; ?></h5>
-					<p class="text-muted mb-0"><?php echo $quiz['description']; ?></p>
+					<h5 class="mb-2"><?php echo sms_e($exam['title']); ?></h5>
+					<p class="text-muted mb-0"><?php echo sms_e($exam['description'] ?: 'No description provided for this exam.'); ?></p>
 					<div class="exam-card-meta">
-						<span class="exam-chip"><i class="fa-solid fa-book"></i><?php echo $quiz['subject']; ?></span>
-						<span class="exam-chip"><i class="fa-solid fa-clock"></i><?php echo $quiz['duration']; ?></span>
-						<span class="exam-chip"><i class="fa-solid fa-circle-question"></i><?php echo $quiz['questions']; ?> Questions</span>
+						<span class="exam-chip"><i class="fa-solid fa-book"></i><?php echo sms_e($exam['subject_name']); ?></span>
+						<span class="exam-chip"><i class="fa-solid fa-clock"></i><?php echo (int) $exam['duration_minutes']; ?> Minutes</span>
+						<span class="exam-chip"><i class="fa-solid fa-rotate"></i><?php echo $remaining; ?> attempt(s) left</span>
 					</div>
-					<a href="quiz-question.php?quiz=<?php echo $index + 1; ?>" class="btn exam-start-btn rounded-pill d-inline-flex align-items-center">
-						Start Quiz <i class="fa-solid fa-arrow-right ms-2"></i>
-					</a>
+					<?php if ($exam['in_progress_attempt_id']): ?>
+						<a href="quiz-question.php?exam_id=<?php echo (int) $exam['id']; ?>" class="btn exam-start-btn rounded-pill d-inline-flex align-items-center">Resume Quiz <i class="fa-solid fa-arrow-right ms-2"></i></a>
+					<?php elseif ($canStart): ?>
+						<a href="quiz-question.php?exam_id=<?php echo (int) $exam['id']; ?>" class="btn exam-start-btn rounded-pill d-inline-flex align-items-center">Start Quiz <i class="fa-solid fa-arrow-right ms-2"></i></a>
+					<?php else: ?>
+						<button class="btn exam-start-btn rounded-pill d-inline-flex align-items-center" disabled>No Attempts Left</button>
+					<?php endif; ?>
 				</article>
 			</div>
 		<?php endforeach; ?>
+		<?php if (!$exams): ?>
+			<div class="col-12"><p class="text-muted fw-bold text-center py-4">No CBT exams are available for your class right now. Check back later.</p></div>
+		<?php endif; ?>
 	</section>
 </div>
 

@@ -1,55 +1,47 @@
-<?php require_once('includes/header.php'); ?>
-		<!-- Main Wrapper -->
-		<div class="main-wrapper">
-            <div class="login-content">
-                <div class="row">
-                   <?php require_once('includes/auth-banner.php'); ?>
-                    <div class="col-lg-6 login-wrap-bg">
-                        <!-- Login -->
-                        <div class="login-wrapper">
-                            <div class="loginbox">
-                                <div class="w-100">
-                                    <?php require_once('includes/login-header.php'); ?>
-                                    <h1 class="fs-32 fw-bold topic">Sign into Your Account</h1>
-                                    <form action="https://dreamslms.dreamstechnologies.com/html/template/instructor-dashboard.html" class="mb-3 pb-3">
-                                        <div class="mb-3 position-relative">
-                                            <label class="form-label">Registration No.<span class="text-danger ms-1">*</span></label>
-                                            <div class="position-relative">
-                                                <input type="email" class="form-control form-control-lg">
-                                                <span><i class="isax isax-sms input-icon text-gray-7 fs-14"></i></span>
-                                            </div>
-                                        </div>
-                                        <div class="mb-3 position-relative">
-                                            <label class="form-label">Password <span class="text-danger ms-1">*</span></label>
-                                            <div class="position-relative" id="passwordInput">
-                                                <input type="password" class="pass-inputs form-control form-control-lg">
-                                                <span class="isax toggle-passwords isax-eye-slash fs-14"></span>
-                                            </div>	
-                                        </div>
-                                        <div class="d-flex align-items-center justify-content-between mb-4">
-                                            <div class="remember-me d-flex align-items-center">
-                                                <input class="form-check-input" type="checkbox" value="" id="flexCheckDefault">
-                                                <label class="form-check-label ms-2" for="flexCheckDefault">
-                                                    Remember Me
-                                                </label>
-                                            </div>
-                                            <div class="">
-                                                <a href="forgot-password.html" class="link-2">
-                                                    Forgot Password ?
-                                                </a>
-                                            </div>
-                                        </div>
-                                        
-                                    </form>
+<?php
+require_once __DIR__ . '/includes/helpers/auth.php';
 
-                                 
+$portals = [
+    ['role' => 'admin', 'label' => 'Administrator', 'icon' => 'fa-user-shield', 'href' => 'admin/login.php'],
+    ['role' => 'teacher', 'label' => 'Teacher', 'icon' => 'fa-chalkboard-user', 'href' => 'teacher/login.php'],
+    ['role' => 'student', 'label' => 'Student', 'icon' => 'fa-user-graduate', 'href' => 'student/login.php'],
+    ['role' => 'accountant', 'label' => 'Accountant', 'icon' => 'fa-file-invoice-dollar', 'href' => 'accountant/login.php'],
+];
+$schoolName = 'Brighter Future Standard School';
+?>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sign In | <?php echo sms_e($schoolName); ?></title>
+    <link rel="shortcut icon" href="assets/img/favicon.png">
+    <link rel="stylesheet" href="assets/css/bootstrap.min.css">
+    <link rel="stylesheet" href="assets/plugins/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="assets/css/auth-login.css">
+</head>
+<body class="auth-page">
+    <main class="auth-shell">
+        <header class="auth-topbar" aria-label="Login page header">
+           
+        </header>
 
-        
-                                </div>
-                            </div>
-                        </div>
+        <section class="auth-layout justify-content-center">
+            <section class="auth-card-wrap" aria-label="Choose your portal">
+                <div class="auth-card">
+                    <h2>Sign In</h2>
+                    <p class="welcome">Choose your portal to continue.</p>
+                    <div class="d-grid gap-3 mt-3">
+                        <?php foreach ($portals as $portal): ?>
+                            <a class="auth-submit d-inline-flex align-items-center justify-content-center gap-2 text-decoration-none" href="<?php echo sms_e($portal['href']); ?>">
+                                <i class="fa-solid <?php echo sms_e($portal['icon']); ?>"></i>
+                                <?php echo sms_e($portal['label']); ?> Login
+                            </a>
+                        <?php endforeach; ?>
                     </div>
                 </div>
-            </div>
-        </div>
-	 <?php require_once('includes/footer.php'); ?>
+            </section>
+        </section>
+    </main>
+</body>
+</html>

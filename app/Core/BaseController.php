@@ -70,6 +70,67 @@ abstract class BaseController
     }
 
     /**
+     * Instantiates a service by class name.
+     */
+    protected function service(string $serviceClass): object
+    {
+        if (!class_exists($serviceClass)) {
+            throw new \InvalidArgumentException(sprintf('Service %s was not found.', $serviceClass));
+        }
+
+        return new $serviceClass();
+    }
+
+    /**
+     * Throws AuthorizationException unless the current user holds at least
+     * one of the given permission slugs (rendered as a 403 by ExceptionHandler).
+     *
+     * @param string|array<int, string> $permission
+     */
+    protected function authorize(string|array $permission): void
+    {
+        $required = (array) $permission;
+        $granted = (array) Session::get('permissions', []);
+
+        if (array_intersect($required, $granted) === []) {
+            throw new AuthorizationException('This action is unauthorized.');
+        }
+    }
+
+    /**
+     * Returns a single value from input flashed by the previous request.
+     */
+    protected function old(string $key, mixed $default = null): mixed
+    {
+        return Session::old($key, $default);
+    }
+
+    /**
+     * Returns validation errors flashed by the previous request.
+     *
+     * @return array<string, mixed>
+     */
+    protected function errors(): array
+    {
+        return Session::errors();
+    }
+
+    /**
+     * Redirects back to the referring page, flashing input and errors for
+     * the next request to read via old()/errors().
+     *
+     * @param array<string, mixed> $input
+     * @param array<string, mixed> $errors
+     */
+    protected function backWithErrors(array $input, array $errors): Response
+    {
+        Session::flashInput($input);
+        Session::flashErrors($errors);
+
+        return Response::redirect($_SERVER['HTTP_REFERER'] ?? '/');
+    }
+
+    /**
      * Stores a success flash message.
      */
     protected function successMessage(string $message): void

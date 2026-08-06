@@ -84,8 +84,65 @@ final class Validator
             'confirmed' => $this->confirmed($field, $value),
             'unique' => $this->unique($field, $value, (string) $parameter),
             'file' => $this->file($field, $value),
+            'in' => $this->in($field, $value, (string) $parameter),
+            'same' => $this->same($field, $value, (string) $parameter),
+            'regex' => $this->regex($field, $value, (string) $parameter),
+            'date_format' => $this->dateFormat($field, $value, (string) $parameter),
+            'array' => $this->array($field, $value),
             default => null,
         };
+    }
+
+    /** Ensures a value is one of a comma-separated list of options. */
+    private function in(string $field, mixed $value, string $parameter): void
+    {
+        if ($value === null || $value === '') {
+            return;
+        }
+
+        $options = array_map('trim', explode(',', $parameter));
+
+        if (!in_array((string) $value, $options, true)) {
+            $this->add($field, ucfirst(str_replace('_', ' ', $field)) . ' must be one of: ' . implode(', ', $options) . '.');
+        }
+    }
+
+    /** Ensures a value matches another field's value. */
+    private function same(string $field, mixed $value, string $parameter): void
+    {
+        if (($this->data[$parameter] ?? null) !== $value) {
+            $this->add($field, ucfirst(str_replace('_', ' ', $field)) . ' must match ' . str_replace('_', ' ', $parameter) . '.');
+        }
+    }
+
+    /** Ensures a value matches a regular expression. */
+    private function regex(string $field, mixed $value, string $parameter): void
+    {
+        if ($value !== null && $value !== '' && (!is_string($value) || @preg_match($parameter, $value) !== 1)) {
+            $this->add($field, ucfirst(str_replace('_', ' ', $field)) . ' has an invalid format.');
+        }
+    }
+
+    /** Ensures a value matches an exact date format. */
+    private function dateFormat(string $field, mixed $value, string $parameter): void
+    {
+        if ($value === null || $value === '') {
+            return;
+        }
+
+        $date = \DateTime::createFromFormat($parameter, (string) $value);
+
+        if (!$date || $date->format($parameter) !== $value) {
+            $this->add($field, ucfirst(str_replace('_', ' ', $field)) . " must match the format {$parameter}.");
+        }
+    }
+
+    /** Ensures a value is an array. */
+    private function array(string $field, mixed $value): void
+    {
+        if ($value !== null && !is_array($value)) {
+            $this->add($field, ucfirst(str_replace('_', ' ', $field)) . ' must be an array.');
+        }
     }
 
     /** Ensures a value is present. */
