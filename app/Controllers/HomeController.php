@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\BaseController;
 use App\Core\Request;
 use App\Core\Response;
+use App\Helpers\Security;
 use App\Models\SettingsModel;
 
 /**
@@ -33,6 +34,7 @@ final class HomeController extends BaseController
             'brandName' => $brandName,
             'logoUrl' => $logoPath ? asset(ltrim((string) $logoPath, '/')) : asset('assets/img/logo/school-logo.png'),
             'whatsappNumber' => $whatsappNumber,
+            'csrfToken' => Security::csrfToken(),
         ]);
     }
 

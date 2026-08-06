@@ -1209,6 +1209,28 @@
 
 .lp-form-reassurance i { color: var(--lp-success); margin-right: 4px; }
 
+.lp-form-server-error {
+  display: none;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #b91c1c;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.lp-form-server-error.lp-show { display: block; }
+
+.lp-honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 /* ---------- Final CTA ---------- */
 .lp-final-cta {
   border-radius: var(--lp-radius-lg);

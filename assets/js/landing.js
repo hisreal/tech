@@ -370,6 +370,7 @@
     var form = document.getElementById("lpDemoForm");
     if (!form) return;
     var success = document.getElementById("lpDemoSuccess");
+    var serverError = document.getElementById("lpDemoFormError");
 
     var validators = {
       school_name: function (v) { return v.trim().length > 1; },
@@ -417,6 +418,11 @@
         return;
       }
 
+      if (serverError) {
+        serverError.classList.remove("lp-show");
+        serverError.textContent = "";
+      }
+
       var submitBtn = form.querySelector('[type="submit"]');
       var originalLabel = submitBtn ? submitBtn.innerHTML : "";
       if (submitBtn) {
@@ -424,14 +430,36 @@
         submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
       }
 
-      setTimeout(function () {
-        form.style.display = "none";
-        if (success) success.classList.add("lp-show");
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = originalLabel;
-        }
-      }, 900);
+      fetch(form.getAttribute("action"), {
+        method: "POST",
+        body: new FormData(form),
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      })
+        .then(function (response) {
+          return response.json().then(function (data) {
+            return { ok: response.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          if (result.ok && result.data.success) {
+            form.style.display = "none";
+            if (success) success.classList.add("lp-show");
+            return;
+          }
+          throw new Error((result.data && result.data.message) || "Something went wrong. Please try again.");
+        })
+        .catch(function (error) {
+          if (serverError) {
+            serverError.textContent = error.message || "Something went wrong. Please try again.";
+            serverError.classList.add("lp-show");
+          }
+        })
+        .finally(function () {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalLabel;
+          }
+        });
     });
   }
 

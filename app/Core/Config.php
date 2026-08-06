@@ -33,10 +33,12 @@ final class Config
             'mail' => [
                 'host' => self::env('MAIL_HOST', 'localhost'),
                 'port' => (int) self::env('MAIL_PORT', 1025),
+                'encryption' => self::env('MAIL_ENCRYPTION', 'tls'),
                 'username' => self::env('MAIL_USERNAME', ''),
                 'password' => self::env('MAIL_PASSWORD', ''),
                 'from_address' => self::env('MAIL_FROM_ADDRESS', 'noreply@school.test'),
                 'from_name' => self::env('MAIL_FROM_NAME', 'School Management System'),
+                'to_address' => self::env('MAIL_TO_ADDRESS', ''),
             ],
             'session' => [
                 'lifetime' => (int) self::env('SESSION_LIFETIME', 120),

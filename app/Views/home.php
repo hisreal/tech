@@ -496,7 +496,12 @@
                 </div>
                 <div class="col-lg-7">
                     <div class="lp-demo-form">
-                        <form id="lpDemoForm" novalidate>
+                        <form id="lpDemoForm" method="post" action="<?= e(url('demo-request-handler.php')) ?>" novalidate>
+                            <input type="hidden" name="_token" value="<?= e($csrfToken ?? '') ?>">
+                            <div class="lp-honeypot" aria-hidden="true">
+                                <label for="lpWebsite">Website</label>
+                                <input type="text" id="lpWebsite" name="website" tabindex="-1" autocomplete="off">
+                            </div>
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label class="lp-form-label" for="lpSchoolName">School Name</label>
@@ -546,6 +551,7 @@
                                     <textarea class="lp-form-control" id="lpMessage" name="message" rows="3" placeholder="Tell us anything else that would help us prepare for the demo"></textarea>
                                 </div>
                                 <div class="col-12">
+                                    <p class="lp-form-server-error" id="lpDemoFormError" role="alert"></p>
                                     <button type="submit" class="lp-btn lp-btn-primary lp-btn-lg lp-btn-block"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Request My Demo</button>
                                     <p class="lp-form-reassurance"><i class="fa-solid fa-lock" aria-hidden="true"></i> Your details are only used to schedule your demo — no spam, ever.</p>
                                 </div>

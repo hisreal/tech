@@ -3,7 +3,7 @@
         'name' => 'school/school-management-system',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => 'aedb8e61d238746f3c64a73670e3bd5a05891b7b',
+        'reference' => '596f2f3970141c265354ac120b47e9f1f8a9b21d',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -100,6 +100,15 @@
             'aliases' => array(),
             'dev_requirement' => false,
         ),
+        'phpmailer/phpmailer' => array(
+            'pretty_version' => 'v7.1.1',
+            'version' => '7.1.1.0',
+            'reference' => '1bc1716a507a65e039d4ac9d9adebbbd0d346e15',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../phpmailer/phpmailer',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
         'phpoffice/phpspreadsheet' => array(
             'pretty_version' => '1.30.6',
             'version' => '1.30.6.0',
@@ -139,7 +148,7 @@
         'school/school-management-system' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => 'aedb8e61d238746f3c64a73670e3bd5a05891b7b',
+            'reference' => '596f2f3970141c265354ac120b47e9f1f8a9b21d',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

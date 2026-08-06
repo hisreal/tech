@@ -116,6 +116,7 @@ class ComposerStaticInite6c6263c0a80387e968f6dd03a29bebc
             'Psr\\SimpleCache\\' => 16,
             'Psr\\Http\\Message\\' => 17,
             'PhpOffice\\PhpSpreadsheet\\' => 25,
+            'PHPMailer\\PHPMailer\\' => 20,
         ),
         'M' => 
         array (
@@ -166,6 +167,10 @@ class ComposerStaticInite6c6263c0a80387e968f6dd03a29bebc
         'PhpOffice\\PhpSpreadsheet\\' => 
         array (
             0 => __DIR__ . '/..' . '/phpoffice/phpspreadsheet/src/PhpSpreadsheet',
+        ),
+        'PHPMailer\\PHPMailer\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/phpmailer/phpmailer/src',
         ),
         'MyCLabs\\Enum\\' => 
         array (
@@ -230,6 +235,7 @@ class ComposerStaticInite6c6263c0a80387e968f6dd03a29bebc
         'App\\Helpers\\FileUploader' => __DIR__ . '/../..' . '/app/Helpers/FileUploader.php',
         'App\\Helpers\\Flash' => __DIR__ . '/../..' . '/app/Helpers/Flash.php',
         'App\\Helpers\\Paginator' => __DIR__ . '/../..' . '/app/Helpers/Paginator.php',
+        'App\\Helpers\\ReportExporter' => __DIR__ . '/../..' . '/app/Helpers/ReportExporter.php',
         'App\\Helpers\\Security' => __DIR__ . '/../..' . '/app/Helpers/Security.php',
         'App\\Helpers\\Validator' => __DIR__ . '/../..' . '/app/Helpers/Validator.php',
         'App\\Middleware\\AuthMiddleware' => __DIR__ . '/../..' . '/app/Middleware/AuthMiddleware.php',
@@ -251,6 +257,7 @@ class ComposerStaticInite6c6263c0a80387e968f6dd03a29bebc
         'App\\Services\\AcademicService' => __DIR__ . '/../..' . '/app/Services/AcademicService.php',
         'App\\Services\\AccountantService' => __DIR__ . '/../..' . '/app/Services/AccountantService.php',
         'App\\Services\\AttendanceService' => __DIR__ . '/../..' . '/app/Services/AttendanceService.php',
+        'App\\Services\\AuditLogService' => __DIR__ . '/../..' . '/app/Services/AuditLogService.php',
         'App\\Services\\AuthService' => __DIR__ . '/../..' . '/app/Services/AuthService.php',
         'App\\Services\\CBTService' => __DIR__ . '/../..' . '/app/Services/CBTService.php',
         'App\\Services\\FinanceService' => __DIR__ . '/../..' . '/app/Services/FinanceService.php',
@@ -677,6 +684,13 @@ class ComposerStaticInite6c6263c0a80387e968f6dd03a29bebc
         'Matrix\\Operators\\Subtraction' => __DIR__ . '/..' . '/markbaker/matrix/classes/src/Operators/Subtraction.php',
         'MyCLabs\\Enum\\Enum' => __DIR__ . '/..' . '/myclabs/php-enum/src/Enum.php',
         'MyCLabs\\Enum\\PHPUnit\\Comparator' => __DIR__ . '/..' . '/myclabs/php-enum/src/PHPUnit/Comparator.php',
+        'PHPMailer\\PHPMailer\\DSNConfigurator' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/DSNConfigurator.php',
+        'PHPMailer\\PHPMailer\\Exception' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/Exception.php',
+        'PHPMailer\\PHPMailer\\OAuth' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/OAuth.php',
+        'PHPMailer\\PHPMailer\\OAuthTokenProvider' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/OAuthTokenProvider.php',
+        'PHPMailer\\PHPMailer\\PHPMailer' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/PHPMailer.php',
+        'PHPMailer\\PHPMailer\\POP3' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/POP3.php',
+        'PHPMailer\\PHPMailer\\SMTP' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/SMTP.php',
         'PhpOffice\\PhpSpreadsheet\\Calculation\\ArrayEnabled' => __DIR__ . '/..' . '/phpoffice/phpspreadsheet/src/PhpSpreadsheet/Calculation/ArrayEnabled.php',
         'PhpOffice\\PhpSpreadsheet\\Calculation\\BinaryComparison' => __DIR__ . '/..' . '/phpoffice/phpspreadsheet/src/PhpSpreadsheet/Calculation/BinaryComparison.php',
         'PhpOffice\\PhpSpreadsheet\\Calculation\\Calculation' => __DIR__ . '/..' . '/phpoffice/phpspreadsheet/src/PhpSpreadsheet/Calculation/Calculation.php',
