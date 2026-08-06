@@ -648,7 +648,7 @@
 </footer>
 
 <?php if (!empty($whatsappNumber)): ?>
-    <a href="https://wa.me/<?= e($whatsappNumber) ?>?text=<?= rawurlencode('Hi, I would like to know more about ' . ($brandName ?? 'your school management platform') . '.') ?>" class="lp-whatsapp-btn" id="lpWhatsapp" target="_blank" rel="noopener" aria-label="Chat with us on WhatsApp">
+    <a href="https://wa.me/2349139298009?text=<?= rawurlencode('Hi, I would like to know more about ' . ($brandName ?? 'your school management platform') . '.') ?>" class="lp-whatsapp-btn" id="lpWhatsapp" target="_blank" rel="noopener" aria-label="Chat with us on WhatsApp">
         <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
     </a>
 <?php endif; ?>
