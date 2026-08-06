@@ -290,13 +290,13 @@
 <!-- ==========================================================================
      8. Statistics
      ========================================================================== -->
-<section class="lp-section lp-stats-section">
+<!--<section class="lp-section lp-stats-section">
     <div class="container">
         <div class="row g-4">
             <?php
             $stats = [
-                ['value' => 120, 'suffix' => '+', 'label' => 'Schools Onboarded', 'icon' => 'fa-school'],
-                ['value' => 45000, 'suffix' => '+', 'label' => 'Active Students', 'icon' => 'fa-user-graduate'],
+                ['value' => 1, 'suffix' => '+', 'label' => 'Schools Onboarded', 'icon' => 'fa-school'],
+                ['value' => 00, 'suffix' => '+', 'label' => 'Active Students', 'icon' => 'fa-user-graduate'],
                 ['value' => 3200, 'suffix' => '+', 'label' => 'Teachers Empowered', 'icon' => 'fa-chalkboard-user'],
                 ['value' => 280000, 'suffix' => '+', 'label' => 'Results Generated', 'icon' => 'fa-file-lines'],
                 ['value' => 15000, 'suffix' => '+', 'label' => 'Hours Saved Monthly', 'icon' => 'fa-clock'],
@@ -312,7 +312,7 @@
             <?php endforeach; ?>
         </div>
     </div>
-</section>
+</section>-->
 
 <!-- ==========================================================================
      9. Pricing
