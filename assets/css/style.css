@@ -75,6 +75,17 @@ body {
   }
 }
 
+/* Desktop density fix: the theme's default spacing/typography reads
+   oversized on large screens, matching what previously required manually
+   zooming the browser out to ~75% for a comfortable, eye-friendly view.
+   Bake that scale into the layout instead so it's the default. Left
+   untouched below the sidebar breakpoint (tablet/mobile). */
+@media (min-width: 992px) {
+  html {
+    zoom: 0.75;
+  }
+}
+
 ::selection {
   background: #392C7D;
   color: var(--white);
