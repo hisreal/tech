@@ -81,8 +81,20 @@ $notifyBody = "A new demo request was submitted on {$brandName}.\n\n"
     . 'Message: ' . ($message !== '' ? $message : '(none)') . "\n\n"
     . 'Submitted: ' . date('Y-m-d H:i:s');
 
-if ($notifyTo !== '') {
-    Mailer::send($notifyTo, "New Demo Request \xE2\x80\x94 {$schoolName}", $notifyBody);
+if ($notifyTo === '') {
+    demoRequestRespond(false, 'This site has no notification email configured yet (MAIL_TO_ADDRESS or School Settings > Email). Please contact us directly for now.');
+}
+
+$notifySent = Mailer::send($notifyTo, "New Demo Request \xE2\x80\x94 {$schoolName}", $notifyBody);
+
+// A non-null lastError means SMTP was attempted (mail is configured) and
+// failed — even if send() still returned true via the local log-file
+// fallback. That fallback exists so nothing is silently lost, but for this
+// form a "success" that never actually emailed anyone is not a success:
+// surface the real reason instead of a false positive.
+if (!$notifySent || Mailer::$lastError !== null) {
+    $reason = Mailer::$lastError ?? 'Unknown mail delivery error.';
+    demoRequestRespond(false, "We couldn't send your request right now ({$reason}). Please try again later or contact us directly.");
 }
 
 $replyBody = "Hi {$contactPerson},\n\n"
@@ -95,6 +107,8 @@ $replyBody = "Hi {$contactPerson},\n\n"
     . "Best regards,\n"
     . $brandName;
 
-Mailer::send($email, "We've received your demo request \xE2\x80\x94 {$brandName}", $replyBody);
+$replySent = Mailer::send($email, "We've received your demo request \xE2\x80\x94 {$brandName}", $replyBody);
 
-demoRequestRespond(true, 'Thank you — our team will reach out within one business day.');
+demoRequestRespond(true, $replySent
+    ? 'Thank you — our team will reach out within one business day. A confirmation has been sent to your email.'
+    : 'Thank you — your request was received and our team will reach out within one business day.');

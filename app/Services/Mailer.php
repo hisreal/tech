@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Application;
-use PHPMailer\PHPMailer\Exception as PHPMailerException;
 use PHPMailer\PHPMailer\PHPMailer;
 
 /**
@@ -21,12 +20,23 @@ use PHPMailer\PHPMailer\PHPMailer;
 final class Mailer
 {
     /**
+     * Set whenever send() returns false, so callers that need to explain
+     * *why* delivery failed (e.g. showing the real reason in a UI instead
+     * of a generic message) can read it immediately after calling send().
+     */
+    public static ?string $lastError = null;
+
+    /**
      * Sends an email. Returns true when the message was actually delivered
      * over SMTP (or logged, on the log driver).
      */
     public static function send(string $to, string $subject, string $body): bool
     {
+        self::$lastError = null;
+
         if (trim($to) === '') {
+            self::$lastError = 'No recipient email address was provided.';
+
             return false;
         }
 
@@ -37,15 +47,24 @@ final class Mailer
             return true;
         }
 
-        return self::deliverLog($to, $subject, $body, $config);
+        if ($configured && self::$lastError === null) {
+            self::$lastError = 'SMTP delivery failed for an unknown reason.';
+        }
+
+        $logged = self::deliverLog($to, $subject, $body, $config);
+
+        if (!$logged && self::$lastError === null) {
+            self::$lastError = 'Could not write to the mail fallback log (check app/Logs permissions).';
+        }
+
+        return $logged;
     }
 
     /** @param array<string,mixed> $config */
     private static function deliverSmtp(string $to, string $subject, string $body, array $config): bool
     {
-        $mail = new PHPMailer(true);
-
         try {
+            $mail = new PHPMailer(true);
             $mail->isSMTP();
             $mail->Host = (string) $config['host'];
             $mail->Port = (int) ($config['port'] ?? 587);
@@ -64,8 +83,12 @@ final class Mailer
             $mail->send();
 
             return true;
-        } catch (PHPMailerException $exception) {
+        } catch (\Throwable $exception) {
+            // Catches PHPMailer's own Exception as well as things like a
+            // missing class (e.g. vendor/ not deployed) so a broken mail
+            // config can never take down the whole request uncaught.
             Logger::exception($exception);
+            self::$lastError = $exception->getMessage();
 
             return false;
         }
