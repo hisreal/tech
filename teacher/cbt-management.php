@@ -66,6 +66,8 @@ function cbtValue($value)
 	.cbt-page .status-published, .cbt-page .status-active { background: var(--cbt-success-soft); color: var(--cbt-success); }
 	.cbt-page .status-draft, .cbt-page .status-inactive { background: var(--cbt-warning-soft); color: #b45309; }
 	.cbt-page .status-completed, .cbt-page .status-archived { background: var(--cbt-blue-soft); color: var(--cbt-blue); }
+	.cbt-page .type-exam { background: var(--cbt-blue-soft); color: var(--cbt-blue); }
+	.cbt-page .type-practice { background: var(--cbt-warning-soft); color: #b45309; }
 	.cbt-page .bank-actions { display: flex; gap: 7px; flex-wrap: wrap; }
 	@media (max-width: 767.98px) { .cbt-page .cbt-hero, .cbt-page .cbt-card, .cbt-page .question-card { padding: 20px; border-radius: 20px; } .cbt-page .option-grid { grid-template-columns: 1fr; } }
 </style>
@@ -100,6 +102,13 @@ function cbtValue($value)
 				<div class="col-md-4"><label class="form-label">Academic Session</label><select class="form-select" name="session_id" required><option value="">Select session</option><?php foreach ($sessions as $s): ?><option value="<?php echo (int) $s['id']; ?>" <?php echo $currentSessionId === (int) $s['id'] ? 'selected' : ''; ?>><?php echo cbtValue($s['name']); ?></option><?php endforeach; ?></select></div>
 				<div class="col-md-4"><label class="form-label">Term</label><select class="form-select" name="term_id" required><option value="">Select term</option><?php foreach ($terms as $t): ?><option value="<?php echo (int) $t['id']; ?>" <?php echo $currentTermId === (int) $t['id'] ? 'selected' : ''; ?>><?php echo cbtValue($t['name']); ?></option><?php endforeach; ?></select></div>
 				<div class="col-md-4"><label class="form-label">CBT Title</label><input type="text" class="form-control" name="title" placeholder="First Term Mathematics Test" required></div>
+				<div class="col-md-4">
+					<label class="form-label">Assessment Type</label>
+					<select class="form-select" name="exam_type" required>
+						<option value="exam">Exam &mdash; one attempt only</option>
+						<option value="practice">Practice &mdash; unlimited attempts</option>
+					</select>
+				</div>
 				<div class="col-md-2"><label class="form-label">Duration (mins)</label><input type="number" min="1" class="form-control" name="duration_minutes" placeholder="30" required></div>
 				<div class="col-md-2"><label class="form-label">Pass Mark (%)</label><input type="number" min="0" max="100" class="form-control" name="pass_mark" value="50"></div>
 				<div class="col-12"><label class="form-label">Instructions / Description</label><textarea class="form-control" name="instructions" placeholder="Answer all questions. Select the best option for each question."></textarea></div>
@@ -172,13 +181,14 @@ function cbtValue($value)
 		</div>
 		<div class="bank-table-wrap">
 			<table class="table bank-table align-middle">
-				<thead><tr><th>CBT Title</th><th>Subject</th><th>Class</th><th>Questions</th><th>Status</th><th>Action</th></tr></thead>
+				<thead><tr><th>CBT Title</th><th>Subject</th><th>Class</th><th>Type</th><th>Questions</th><th>Status</th><th>Action</th></tr></thead>
 				<tbody>
 				<?php foreach ($exams as $item): ?>
 					<tr>
 						<td><?php echo cbtValue($item['title']); ?></td>
 						<td><?php echo cbtValue($item['subject_name']); ?></td>
 						<td><?php echo cbtValue($item['class_name']); ?></td>
+						<td><span class="status-badge type-<?php echo cbtValue($item['exam_type']); ?>"><?php echo $item['exam_type'] === 'practice' ? 'Practice' : 'Exam'; ?></span></td>
 						<td><?php echo (int) $item['question_count']; ?></td>
 						<td><span class="status-badge status-<?php echo cbtValue($item['status']); ?>"><?php echo cbtValue(ucfirst($item['status'])); ?></span></td>
 						<td>

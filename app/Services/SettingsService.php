@@ -121,7 +121,29 @@ final class SettingsService
             return ['success' => false, 'message' => 'System error. Settings could not be saved.', 'errors' => []];
         }
 
-        return ['success' => true, 'message' => $section === 'school_information' && isset($settings['school.logo']) ? 'Settings saved successfully. Logo uploaded successfully.' : 'Settings saved successfully.', 'errors' => []];
+        $message = $section === 'school_information' && isset($settings['school.logo']) ? 'Settings saved successfully. Logo uploaded successfully.' : 'Settings saved successfully.';
+
+        // When the current session/term actually changes, immediately
+        // generate invoices for the new term (for classes that already have
+        // an active fee structure) instead of leaving Outstanding Fees
+        // empty until someone manually searches each student.
+        if ($section === 'academic_settings') {
+            $newSessionId = $this->int($after['academic.current_session_id'] ?? 0);
+            $newTermId = $this->int($after['academic.current_term_id'] ?? 0);
+            $termChanged = $newTermId > 0 && (
+                $this->int($before['academic.current_term_id'] ?? 0) !== $newTermId
+                || $this->int($before['academic.current_session_id'] ?? 0) !== $newSessionId
+            );
+
+            if ($termChanged) {
+                $generated = (new FinanceService())->generateInvoicesForTerm($newSessionId, $newTermId);
+                if ($generated['created'] > 0) {
+                    $message .= " {$generated['created']} invoice(s) generated for the new term.";
+                }
+            }
+        }
+
+        return ['success' => true, 'message' => $message, 'errors' => []];
     }
 
     public function logoUrl(?string $path): string

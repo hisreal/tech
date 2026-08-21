@@ -16,16 +16,19 @@ if (!$studentId || !$examId) {
 
 $latest = $cbtService->latestAttempt($examId, $studentId);
 $attempt = null;
+$wantsNewAttempt = ($_GET['retake'] ?? '') === '1';
 
-if ($latest && $latest['status'] !== 'in_progress') {
-    // Already submitted (or auto-submitted) - show the result instead of trying to start a new attempt.
+if ($latest && $latest['status'] !== 'in_progress' && !$wantsNewAttempt) {
+    // Default to showing the result of their most recent attempt - just
+    // landing back on this page (e.g. straight after submitting) must never
+    // silently start a new attempt. A new one only starts when the student
+    // explicitly asks for it via the "Retake" button on the result screen.
     $attempt = $cbtService->attemptWithExam((int) $latest['id']);
 } else {
     $start = $cbtService->findOrStartAttempt($examId, $studentId);
     if ($start['success']) {
         $attempt = $cbtService->attemptWithExam((int) $start['attempt']['id']);
     } elseif (($start['reason'] ?? null) === 'max_attempts' && $latest) {
-        // No attempts left - fall back to showing their last submitted result rather than bouncing them away.
         $attempt = $cbtService->attemptWithExam((int) $latest['id']);
     } else {
         sms_flash_set('error', $start['message']);
@@ -126,11 +129,17 @@ require_once('includes/header.php');
 							</div>
 						</form>
 
+						<!-- Kept in the DOM regardless of completeness so the timer can still force-submit at the deadline; only the visible button is gated on having answered every question. -->
 						<form method="post" action="quiz-submit.php" id="submitForm" onsubmit="return confirm('Submit your exam now? You cannot change your answers after submitting.');" class="mt-2">
 							<input type="hidden" name="_token" value="<?php echo sms_e(sms_csrf_token()); ?>">
 							<input type="hidden" name="attempt_id" value="<?php echo (int) $attempt['id']; ?>">
 							<input type="hidden" name="exam_id" value="<?php echo (int) $examId; ?>">
-							<button type="submit" class="btn btn-success rounded-pill d-inline-flex align-items-center w-100"><i class="fa-solid fa-paper-plane me-2"></i>Submit Quiz</button>
+							<?php if ($answeredCount === count($questions)): ?>
+								<button type="submit" class="btn btn-success rounded-pill d-inline-flex align-items-center w-100"><i class="fa-solid fa-paper-plane me-2"></i>Submit Quiz</button>
+							<?php else: ?>
+								<button type="button" class="btn btn-success rounded-pill d-inline-flex align-items-center w-100" disabled title="Answer every question to enable submission"><i class="fa-solid fa-paper-plane me-2"></i>Submit Quiz</button>
+								<p class="text-muted small text-center mt-2 mb-0">Answer all questions to unlock submission (<?php echo count($questions) - $answeredCount; ?> remaining).</p>
+							<?php endif; ?>
 						</form>
 					</section>
 				</div>
@@ -201,6 +210,9 @@ require_once('includes/header.php');
 
 			<div class="d-flex align-items-center justify-content-center flex-wrap gap-2">
 				<?php if ($result['allow_review']): ?><button type="button" class="btn btn-light rounded-pill" id="reviewAnswers"><i class="fa-solid fa-eye me-2"></i>Review Answers</button><?php endif; ?>
+				<?php if ($attempt['exam_type'] === 'practice' && $attempt['exam_status'] === 'active'): ?>
+					<a href="quiz-question.php?exam_id=<?php echo (int) $examId; ?>&retake=1" class="btn btn-outline-success rounded-pill"><i class="fa-solid fa-rotate-right me-2"></i>Retake Practice Quiz</a>
+				<?php endif; ?>
 				<a href="quiz.php" class="btn btn-success rounded-pill"><i class="fa-solid fa-arrow-left me-2"></i>Return to Quiz Dashboard</a>
 			</div>
 

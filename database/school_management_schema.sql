@@ -581,6 +581,7 @@ CREATE TABLE IF NOT EXISTS cbt_exams (
   show_result_immediately TINYINT(1) DEFAULT 1,
   allow_review TINYINT(1) DEFAULT 1,
   status ENUM('draft','published','active','completed','inactive','archived') DEFAULT 'draft',
+  exam_type ENUM('exam','practice') NOT NULL DEFAULT 'exam',
   created_by BIGINT UNSIGNED NULL,
   published_at DATETIME NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

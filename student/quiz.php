@@ -60,8 +60,9 @@ $avgDuration = $exams ? round(array_sum(array_column($exams, 'duration_minutes')
 	<section class="row g-4" aria-label="Available quizzes">
 		<?php foreach ($exams as $exam): ?>
 			<?php
-			$remaining = max(0, (int) $exam['maximum_attempts'] - (int) $exam['attempts_used']);
-			$canStart = $remaining > 0 || $exam['in_progress_attempt_id'];
+			$isUnlimited = (int) $exam['maximum_attempts'] === 0;
+			$remaining = $isUnlimited ? null : max(0, (int) $exam['maximum_attempts'] - (int) $exam['attempts_used']);
+			$canStart = $isUnlimited || $remaining > 0 || $exam['in_progress_attempt_id'];
 			?>
 			<div class="col-md-6 col-xl-4">
 				<article class="exam-card">
@@ -69,12 +70,12 @@ $avgDuration = $exams ? round(array_sum(array_column($exams, 'duration_minutes')
 						<span class="exam-card-icon"><i class="fa-solid fa-book-open-reader"></i></span>
 						<span class="exam-chip"><i class="fa-solid fa-layer-group"></i><?php echo (int) $exam['question_count']; ?> Questions</span>
 					</div>
-					<h5 class="mb-2"><?php echo sms_e($exam['title']); ?></h5>
+					<h5 class="mb-2"><?php echo sms_e($exam['title']); ?> <?php echo $exam['exam_type'] === 'practice' ? '<span class="exam-chip" style="background:rgba(245,158,11,.14);color:#b45309;">Practice</span>' : ''; ?></h5>
 					<p class="text-muted mb-0"><?php echo sms_e($exam['description'] ?: 'No description provided for this exam.'); ?></p>
 					<div class="exam-card-meta">
 						<span class="exam-chip"><i class="fa-solid fa-book"></i><?php echo sms_e($exam['subject_name']); ?></span>
 						<span class="exam-chip"><i class="fa-solid fa-clock"></i><?php echo (int) $exam['duration_minutes']; ?> Minutes</span>
-						<span class="exam-chip"><i class="fa-solid fa-rotate"></i><?php echo $remaining; ?> attempt(s) left</span>
+						<span class="exam-chip"><i class="fa-solid fa-rotate"></i><?php echo $isUnlimited ? 'Unlimited attempts' : $remaining . ' attempt(s) left'; ?></span>
 					</div>
 					<?php if ($exam['in_progress_attempt_id']): ?>
 						<a href="quiz-question.php?exam_id=<?php echo (int) $exam['id']; ?>" class="btn exam-start-btn rounded-pill d-inline-flex align-items-center">Resume Quiz <i class="fa-solid fa-arrow-right ms-2"></i></a>

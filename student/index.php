@@ -8,7 +8,15 @@ $financeService = new FinanceService();
 $currentUser = sms_current_user();
 $studentId = $financeService->studentIdForUser((int) $currentUser['id']);
 
-$billing = $studentId ? $financeService->studentBillingSummary($studentId) : ['total_bill' => 0, 'total_paid' => 0, 'balance' => 0];
+$currentSessionId = $financeService->currentSessionId();
+$currentTermId = $financeService->currentTermId();
+
+$billing = ($studentId && $currentSessionId && $currentTermId)
+    ? $financeService->studentTermBillingSummary($studentId, $currentSessionId, $currentTermId)
+    : ['total_bill' => 0, 'total_paid' => 0, 'balance' => 0];
+$priorBalance = ($studentId && $currentSessionId && $currentTermId)
+    ? $financeService->studentPriorBalance($studentId, $currentSessionId, $currentTermId)
+    : 0.0;
 $payments = $studentId ? $financeService->paymentHistory(['student_id' => $studentId], 200) : [];
 
 function studentPayMoney($amount) { return '₦' . number_format((float) $amount); }
@@ -81,6 +89,7 @@ function studentPayStatus(string $status): string
 	.student-payment-page .payment-summary-icon.primary { background: var(--pay-primary-soft); color: var(--pay-primary); }
 	.student-payment-page .payment-summary-icon.success { background: var(--pay-success-soft); color: var(--pay-success); }
 	.student-payment-page .payment-summary-icon.warning { background: var(--pay-warning-soft); color: var(--pay-warning); }
+	.student-payment-page .payment-summary-icon.danger { background: var(--pay-danger-soft); color: var(--pay-danger); }
 
 	.student-payment-page .payment-card {
 		overflow: hidden;
@@ -214,36 +223,46 @@ function studentPayStatus(string $status): string
 			</div>
 		</div>
 
-		<!-- Payment summary cards: totals are calculated automatically from table records. -->
+		<!-- Payment summary cards: current-term billing plus any arrears carried from earlier terms. -->
 		<section class="row g-3 mb-4" aria-label="Payment summary">
-			<div class="col-sm-6 col-xl-4">
+			<div class="col-sm-6 col-xl-3">
 				<div class="payment-summary-card">
 					<div class="d-flex align-items-center justify-content-between mb-3">
 						<span class="payment-summary-icon primary"><i class="fa-solid fa-file-invoice-dollar"></i></span>
 						<span class="text-muted small">Total Bill</span>
 					</div>
 					<h3 class="mb-0" id="totalBill"><?php echo studentPayValue(studentPayMoney($billing['total_bill'])); ?></h3>
-					<p class="text-muted mb-0">Total amount billed</p>
+					<p class="text-muted mb-0">Current term billed</p>
 				</div>
 			</div>
-			<div class="col-sm-6 col-xl-4">
+			<div class="col-sm-6 col-xl-3">
 				<div class="payment-summary-card">
 					<div class="d-flex align-items-center justify-content-between mb-3">
 						<span class="payment-summary-icon success"><i class="fa-solid fa-circle-check"></i></span>
 						<span class="text-muted small">Paid</span>
 					</div>
 					<h3 class="mb-0" id="totalPaid"><?php echo studentPayValue(studentPayMoney($billing['total_paid'])); ?></h3>
-					<p class="text-muted mb-0">Amount received</p>
+					<p class="text-muted mb-0">Current term paid</p>
 				</div>
 			</div>
-			<div class="col-sm-6 col-xl-4">
+			<div class="col-sm-6 col-xl-3">
 				<div class="payment-summary-card">
 					<div class="d-flex align-items-center justify-content-between mb-3">
 						<span class="payment-summary-icon warning"><i class="fa-solid fa-wallet"></i></span>
 						<span class="text-muted small">Balance</span>
 					</div>
 					<h3 class="mb-0" id="totalBalance"><?php echo studentPayValue(studentPayMoney($billing['balance'])); ?></h3>
-					<p class="text-muted mb-0">Outstanding amount</p>
+					<p class="text-muted mb-0">Current term outstanding</p>
+				</div>
+			</div>
+			<div class="col-sm-6 col-xl-3">
+				<div class="payment-summary-card">
+					<div class="d-flex align-items-center justify-content-between mb-3">
+						<span class="payment-summary-icon danger"><i class="fa-solid fa-clock-rotate-left"></i></span>
+						<span class="text-muted small">Arrears</span>
+					</div>
+					<h3 class="mb-0" id="priorBalance"><?php echo studentPayValue(studentPayMoney($priorBalance)); ?></h3>
+					<p class="text-muted mb-0">Previous term(s) outstanding</p>
 				</div>
 			</div>
 		</section>

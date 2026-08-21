@@ -85,6 +85,34 @@ final class FinanceService
         ];
     }
 
+    /** Billing totals scoped to a single session+term, e.g. the current term only. @return array{total_bill:float,total_paid:float,balance:float} */
+    public function studentTermBillingSummary(int $studentId, int $sessionId, int $termId): array
+    {
+        $row = $this->db->fetchOne(
+            "SELECT COALESCE(SUM(total_amount),0) total_bill, COALESCE(SUM(amount_paid),0) total_paid, COALESCE(SUM(balance),0) balance
+             FROM invoices WHERE student_id = :sid AND session_id = :session_id AND term_id = :term_id AND status <> 'cancelled'",
+            ['sid' => $studentId, 'session_id' => $sessionId, 'term_id' => $termId]
+        );
+
+        return [
+            'total_bill' => (float) ($row['total_bill'] ?? 0),
+            'total_paid' => (float) ($row['total_paid'] ?? 0),
+            'balance' => (float) ($row['balance'] ?? 0),
+        ];
+    }
+
+    /** Sum of unpaid balance from every term/session other than the given one, e.g. arrears carried into the current term. */
+    public function studentPriorBalance(int $studentId, int $sessionId, int $termId): float
+    {
+        $row = $this->db->fetchOne(
+            "SELECT COALESCE(SUM(balance),0) balance FROM invoices
+             WHERE student_id = :sid AND status <> 'cancelled' AND NOT (session_id = :session_id AND term_id = :term_id)",
+            ['sid' => $studentId, 'session_id' => $sessionId, 'term_id' => $termId]
+        );
+
+        return (float) ($row['balance'] ?? 0);
+    }
+
     public function currentSessionId(): ?int
     {
         $row = $this->db->fetchOne("SELECT setting_value FROM school_settings WHERE setting_key = 'academic.current_session_id'");
@@ -231,7 +259,15 @@ final class FinanceService
             return ['success' => false, 'message' => 'Unable to save the fee structure right now.'];
         }
 
-        return ['success' => true, 'message' => $id ? 'Fee structure updated successfully.' : 'Fee structure saved successfully.', 'id' => $newId];
+        $message = $id ? 'Fee structure updated successfully.' : 'Fee structure saved successfully.';
+        if ($status === 'active') {
+            $generated = $this->generateInvoicesForClass($sessionId, $termId, $classId, $sectionId);
+            if ($generated['created'] > 0) {
+                $message .= " Invoices generated for {$generated['created']} student(s).";
+            }
+        }
+
+        return ['success' => true, 'message' => $message, 'id' => $newId];
     }
 
     public function duplicateFeeStructure(int $id, ?int $toSessionId, ?int $toTermId, ?array $actor): array
@@ -419,6 +455,71 @@ final class FinanceService
         }
 
         return $this->db->fetchOne('SELECT * FROM invoices WHERE id = :id', ['id' => $invoiceId]);
+    }
+
+    /**
+     * Bulk-generates invoices (via ensureInvoice) for every actively
+     * enrolled student in a class/section for a given session+term, instead
+     * of waiting for someone to search for each student individually in Fee
+     * Collection. Existing invoices are left untouched.
+     *
+     * @return array{created:int,skipped:int}
+     */
+    public function generateInvoicesForClass(int $sessionId, int $termId, int $classId, ?int $sectionId = null): array
+    {
+        $where = ['se.session_id = :session_id', 'se.class_id = :class_id', "se.status = 'active'", "s.status = 'active'"];
+        $params = ['session_id' => $sessionId, 'class_id' => $classId];
+        if ($sectionId) {
+            $where[] = 'se.section_id = :section_id';
+            $params['section_id'] = $sectionId;
+        }
+
+        $roster = $this->db->fetchAll(
+            'SELECT se.* FROM student_enrollments se INNER JOIN students s ON s.id = se.student_id WHERE ' . implode(' AND ', $where),
+            $params
+        );
+
+        $created = 0;
+        $skipped = 0;
+        foreach ($roster as $enrollment) {
+            $studentId = (int) $enrollment['student_id'];
+            $existing = $this->db->fetchOne(
+                'SELECT id FROM invoices WHERE student_id = :sid AND session_id = :session_id AND term_id = :term_id',
+                ['sid' => $studentId, 'session_id' => $sessionId, 'term_id' => $termId]
+            );
+            if ($existing) {
+                $skipped++;
+                continue;
+            }
+            $this->ensureInvoice($studentId, $sessionId, $termId, $enrollment) ? $created++ : $skipped++;
+        }
+
+        return ['created' => $created, 'skipped' => $skipped];
+    }
+
+    /**
+     * Bulk-generates invoices for every class/section that has an active
+     * fee structure for the given session+term. Called when the school's
+     * current session/term changes, so Outstanding Fees reflects reality
+     * immediately instead of only after someone manually searches a student.
+     *
+     * @return array{created:int,skipped:int}
+     */
+    public function generateInvoicesForTerm(int $sessionId, int $termId): array
+    {
+        $structures = $this->db->fetchAll(
+            'SELECT DISTINCT class_id, section_id FROM fee_structures WHERE session_id = :session_id AND term_id = :term_id AND status = "active"',
+            ['session_id' => $sessionId, 'term_id' => $termId]
+        );
+
+        $totals = ['created' => 0, 'skipped' => 0];
+        foreach ($structures as $row) {
+            $result = $this->generateInvoicesForClass($sessionId, $termId, (int) $row['class_id'], $row['section_id'] ? (int) $row['section_id'] : null);
+            $totals['created'] += $result['created'];
+            $totals['skipped'] += $result['skipped'];
+        }
+
+        return $totals;
     }
 
     // ------------------------------------------------------------------

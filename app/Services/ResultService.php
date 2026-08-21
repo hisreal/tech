@@ -484,6 +484,15 @@ final class ResultService
 
             $this->recomputeSubjectPositions($batchId);
 
+            // Keep the cached class-wide summary (total/average/position on
+            // the broadsheet) in sync whenever scores change on a batch
+            // that's already published - not just at publish time. Without
+            // this, editing a score post-publish leaves Total/Average stale
+            // while the individual subject column (read live) updates.
+            if (in_array($batch['status'], ['published', 'locked'], true)) {
+                $this->recomputeResultScores((int) $batch['session_id'], (int) $batch['term_id'], (int) $batch['class_id'], $batch['section_id'] ? (int) $batch['section_id'] : null);
+            }
+
             $this->audit($actor, 'result', 'result.scores.saved', 'result_batches', $batchId, null, ['students_scored' => count($clean)]);
             $this->db->commit();
         } catch (\Throwable $throwable) {

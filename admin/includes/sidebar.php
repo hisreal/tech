@@ -41,9 +41,10 @@ $smsNavItems = [
         'label' => 'Result Management',
         'href' => 'results.php',
         'icon' => 'fa-solid fa-square-poll-vertical',
-        'pages' => ['results.php', 'score-entry.php', 'report-cards.php', 'result-settings.php'],
+        'pages' => ['results.php', 'broadsheet.php', 'score-entry.php', 'report-cards.php', 'result-settings.php'],
         'children' => [
             ['label' => 'Results', 'href' => 'results.php', 'icon' => 'fa-solid fa-square-poll-vertical', 'pages' => ['results.php']],
+            ['label' => 'Broadsheet', 'href' => 'broadsheet.php', 'icon' => 'fa-solid fa-table-list', 'pages' => ['broadsheet.php']],
             ['label' => 'Score Entry', 'href' => 'score-entry.php', 'icon' => 'fa-solid fa-pen-to-square', 'pages' => ['score-entry.php']],
             ['label' => 'Report Cards', 'href' => 'report-cards.php', 'icon' => 'fa-solid fa-file-lines', 'pages' => ['report-cards.php']],
             ['label' => 'Result Settings', 'href' => 'result-settings.php', 'icon' => 'fa-solid fa-gears', 'pages' => ['result-settings.php']],

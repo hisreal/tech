@@ -98,7 +98,7 @@ function sms_cbtx_old(array $old, string $key, string $default = ''): string
             <a class="module-btn btn-outline-soft" href="cbt-exam-export.php?<?php echo sms_e(http_build_query($_GET)); ?>"><i class="fa-solid fa-file-csv"></i> CSV</a>
         </div>
         <div class="table-shell"><table class="table cbt-table">
-            <thead><tr><th>Exam Title</th><th>Subject</th><th>Teacher</th><th>Class</th><th>Duration</th><th>Questions</th><th>Attempts</th><th>Average</th><th>Status</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Exam Title</th><th>Subject</th><th>Teacher</th><th>Class</th><th>Type</th><th>Duration</th><th>Questions</th><th>Attempts</th><th>Average</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>
             <?php foreach ($tableResult['data'] as $exam): ?>
                 <tr data-status="<?php echo sms_e($exam['status']); ?>">
@@ -106,6 +106,7 @@ function sms_cbtx_old(array $old, string $key, string $default = ''): string
                     <td><?php echo sms_e($exam['subject_name']); ?></td>
                     <td><?php echo sms_e(trim(($exam['teacher_first_name'] ?? '') . ' ' . ($exam['teacher_last_name'] ?? '')) ?: 'Unassigned'); ?></td>
                     <td><?php echo sms_e($exam['class_name'] . ($exam['section_name'] ? ' - ' . $exam['section_name'] : '')); ?></td>
+                    <td><?php echo sms_cbt_render_badge($exam['exam_type'] === 'practice' ? 'Practice' : 'Exam'); ?></td>
                     <td><?php echo (int) $exam['duration_minutes']; ?> mins</td>
                     <td><?php echo (int) $exam['question_count']; ?></td>
                     <td><?php echo (int) $exam['attempt_count']; ?></td>
@@ -123,6 +124,7 @@ function sms_cbtx_old(array $old, string $key, string $default = ''): string
                                         data-subject="<?php echo (int) $exam['subject_id']; ?>" data-class="<?php echo (int) $exam['class_id']; ?>"
                                         data-section="<?php echo (int) ($exam['section_id'] ?? 0); ?>" data-duration="<?php echo (int) $exam['duration_minutes']; ?>"
                                         data-pass="<?php echo sms_e($exam['pass_mark']); ?>" data-attempts="<?php echo (int) $exam['maximum_attempts']; ?>"
+                                        data-type="<?php echo sms_e($exam['exam_type']); ?>"
                                         data-description="<?php echo sms_e((string) $exam['description']); ?>" data-instructions="<?php echo sms_e((string) $exam['instructions']); ?>">
                                         <i class="fa-solid fa-pen me-2"></i>Edit</button>
                                 <?php endif; ?>
@@ -177,7 +179,11 @@ function sms_cbtx_old(array $old, string $key, string $default = ''): string
                         <div><label>Section</label><select class="form-select" name="section_id" id="examSection"><option value="">Whole Class</option><?php foreach ($sections as $item): ?><option value="<?php echo (int) $item['id']; ?>" data-class="<?php echo (int) $item['class_id']; ?>"><?php echo sms_e($item['name']); ?></option><?php endforeach; ?></select></div>
                         <div><label>Duration (minutes)</label><input class="form-control" type="number" min="1" name="duration_minutes" id="examDuration" value="<?php echo sms_cbtx_old($old, 'duration_minutes', '30'); ?>" required></div>
                         <div><label>Pass Mark (%)</label><input class="form-control" type="number" min="0" max="100" name="pass_mark" id="examPassMark" value="<?php echo sms_cbtx_old($old, 'pass_mark', (string) $cbtService->generalSettings()['pass_mark']); ?>"></div>
-                        <div><label>Maximum Attempts</label><input class="form-control" type="number" min="1" name="maximum_attempts" id="examAttempts" value="<?php echo sms_cbtx_old($old, 'maximum_attempts', (string) $cbtService->generalSettings()['maximum_attempts']); ?>"></div>
+                        <div><label>Assessment Type</label><select class="form-select" name="exam_type" id="examType" required>
+                            <option value="exam" <?php echo sms_cbtx_old($old, 'exam_type', 'exam') === 'exam' ? 'selected' : ''; ?>>Exam &mdash; one attempt only</option>
+                            <option value="practice" <?php echo sms_cbtx_old($old, 'exam_type', 'exam') === 'practice' ? 'selected' : ''; ?>>Practice &mdash; unlimited attempts</option>
+                        </select></div>
+                        <div><label>Attempts Allowed</label><input class="form-control" type="text" id="examAttemptsDisplay" value="1 (Exam)" disabled></div>
                         <div class="full"><label>Description</label><textarea class="form-control" name="description" id="examDescription"><?php echo sms_cbtx_old($old, 'description'); ?></textarea></div>
                         <div class="full"><label>Instructions</label><textarea class="form-control" name="instructions" id="examInstructions"><?php echo sms_cbtx_old($old, 'instructions'); ?></textarea></div>
                     </div>
@@ -200,12 +206,23 @@ function sms_cbtx_old(array $old, string $key, string $default = ''): string
     function getModal(){ return window.bootstrap ? bootstrap.Modal.getOrCreateInstance(modalEl) : null; }
     var form = document.getElementById('examForm');
     var title = document.getElementById('examModalTitle');
+    var examTypeSelect = document.getElementById('examType');
+    var attemptsDisplay = document.getElementById('examAttemptsDisplay');
+
+    // Attempts are fully determined by type server-side (exam = 1,
+    // practice = unlimited) - this field is display-only, kept in sync so
+    // it's never misleading, but nothing here is actually submitted.
+    function syncAttemptsDisplay() {
+        attemptsDisplay.value = examTypeSelect.value === 'practice' ? 'Unlimited (Practice)' : '1 (Exam)';
+    }
+    examTypeSelect.addEventListener('change', syncAttemptsDisplay);
 
     document.getElementById('addExamBtn').addEventListener('click', function () {
         title.textContent = 'Add CBT Exam';
         form.reset();
         form.action = 'cbt-exam-store.php';
         document.getElementById('examId').value = '';
+        syncAttemptsDisplay();
         var modal = getModal(); if (modal) { modal.show(); }
     });
 
@@ -221,7 +238,8 @@ function sms_cbtx_old(array $old, string $key, string $default = ''): string
             document.getElementById('examSection').value = btn.dataset.section;
             document.getElementById('examDuration').value = btn.dataset.duration;
             document.getElementById('examPassMark').value = btn.dataset.pass;
-            document.getElementById('examAttempts').value = btn.dataset.attempts;
+            examTypeSelect.value = btn.dataset.type || 'exam';
+            syncAttemptsDisplay();
             document.getElementById('examDescription').value = btn.dataset.description;
             document.getElementById('examInstructions').value = btn.dataset.instructions;
             var modal = getModal(); if (modal) { modal.show(); }

@@ -25,7 +25,6 @@ $filters = [
 $sessions = $resultService->sessionsForSelect();
 $terms = $resultService->termsForSelect();
 $classes = $resultService->classesForSelect();
-$sections = $resultService->sectionsForSelect();
 $subjects = $resultService->subjectsForSelect();
 $statuses = ['draft' => 'Draft', 'submitted' => 'Submitted', 'approved' => 'Approved', 'published' => 'Published', 'locked' => 'Locked'];
 
@@ -41,16 +40,6 @@ $cards = [
     ['title' => 'Published', 'value' => number_format($publishedCount), 'description' => 'Visible to students', 'icon' => 'fa-bullhorn', 'color' => 'blue'],
     ['title' => 'Locked', 'value' => number_format($lockedCount), 'description' => 'Protected result records', 'icon' => 'fa-lock', 'color' => 'success'],
 ];
-
-// --- Broadsheet (own selector, independent of the batch table filters) ---
-$bsSessionId = (int) ($_GET['bs_session_id'] ?? $resultService->currentSessionId() ?? 0);
-$bsTermId = (int) ($_GET['bs_term_id'] ?? $resultService->currentTermId() ?? 0);
-$bsClassId = (int) ($_GET['bs_class_id'] ?? 0);
-$bsSectionId = (int) ($_GET['bs_section_id'] ?? 0);
-$broadsheet = null;
-if ($bsSessionId && $bsTermId && $bsClassId) {
-    $broadsheet = $resultService->broadsheet($bsSessionId, $bsTermId, $bsClassId, $bsSectionId ?: null);
-}
 
 function sms_res_query(array $overrides = []): string
 {
@@ -74,7 +63,10 @@ function sms_res_query(array $overrides = []): string
                 <h3 class="mt-3 mb-2">Results</h3>
                 <p class="text-muted mb-0">Central hub for approving, publishing, locking, unlocking, exporting, and reviewing class broadsheets.</p>
             </div>
-            <a class="module-btn btn-outline-soft" href="score-entry.php"><i class="fa-solid fa-pen-to-square"></i> Score Entry</a>
+            <div class="d-flex flex-wrap gap-2">
+                <a class="module-btn btn-outline-soft" href="broadsheet.php"><i class="fa-solid fa-table-list"></i> Broadsheet</a>
+                <a class="module-btn btn-outline-soft" href="score-entry.php"><i class="fa-solid fa-pen-to-square"></i> Score Entry</a>
+            </div>
         </div>
     </section>
 
@@ -140,7 +132,7 @@ function sms_res_query(array $overrides = []): string
                                     <?php if ($item['status'] === 'approved'): ?><button class="dropdown-item single-action" type="button" data-action="publish" data-id="<?php echo (int) $item['id']; ?>"><i class="fa-solid fa-bullhorn me-2"></i>Publish</button><?php endif; ?>
                                     <?php if (in_array($item['status'], ['approved', 'published'], true)): ?><button class="dropdown-item single-action" type="button" data-action="lock" data-id="<?php echo (int) $item['id']; ?>"><i class="fa-solid fa-lock me-2"></i>Lock</button><?php endif; ?>
                                     <?php if ($item['status'] === 'locked'): ?><button class="dropdown-item single-action" type="button" data-action="unlock" data-id="<?php echo (int) $item['id']; ?>"><i class="fa-solid fa-lock-open me-2"></i>Unlock</button><?php endif; ?>
-                                    <a class="dropdown-item" href="<?php echo sms_e(sms_res_query(['bs_session_id' => $item['session_id'], 'bs_term_id' => $item['term_id'], 'bs_class_id' => $item['class_id'], 'bs_section_id' => $item['section_id'] ?? ''])); ?>#broadsheet"><i class="fa-solid fa-table-list me-2"></i>View Broadsheet</a>
+                                    <a class="dropdown-item" href="broadsheet.php?<?php echo sms_e(http_build_query(['session_id' => $item['session_id'], 'term_id' => $item['term_id'], 'class_id' => $item['class_id'], 'section_id' => $item['section_id'] ?? ''])); ?>"><i class="fa-solid fa-table-list me-2"></i>View Broadsheet</a>
                                 </div>
                             </div>
                         </td>
@@ -160,55 +152,6 @@ function sms_res_query(array $overrides = []): string
                 </div>
             <?php endif; ?>
         </div>
-    </section>
-
-    <section class="module-card" id="broadsheet">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
-            <div><h4 class="mb-1">Class Broadsheet</h4><p class="text-muted mb-0">Pivoted subject scores per student for a session, term, and class.</p></div>
-            <?php if ($broadsheet): ?><div class="d-flex flex-wrap gap-2">
-                <a class="module-btn btn-outline-soft" href="broadsheet-export.php?<?php echo sms_e(http_build_query(['session_id' => $bsSessionId, 'term_id' => $bsTermId, 'class_id' => $bsClassId, 'section_id' => $bsSectionId, 'format' => 'pdf'])); ?>"><i class="fa-solid fa-file-pdf"></i> PDF</a>
-                <a class="module-btn btn-outline-soft" href="broadsheet-export.php?<?php echo sms_e(http_build_query(['session_id' => $bsSessionId, 'term_id' => $bsTermId, 'class_id' => $bsClassId, 'section_id' => $bsSectionId, 'format' => 'excel'])); ?>"><i class="fa-solid fa-file-excel"></i> Excel</a>
-                <a class="module-btn btn-outline-soft" href="broadsheet-export.php?<?php echo sms_e(http_build_query(['session_id' => $bsSessionId, 'term_id' => $bsTermId, 'class_id' => $bsClassId, 'section_id' => $bsSectionId, 'format' => 'csv'])); ?>"><i class="fa-solid fa-file-csv"></i> CSV</a>
-                <button class="module-btn btn-muted-soft" type="button" onclick="window.print()"><i class="fa-solid fa-print"></i> Print</button>
-            </div><?php endif; ?>
-        </div>
-        <form method="get" class="mb-3">
-            <input type="hidden" name="session_id" value="<?php echo sms_e($sessionId); ?>">
-            <input type="hidden" name="term_id" value="<?php echo sms_e($termId); ?>">
-            <input type="hidden" name="class_id" value="<?php echo sms_e($classId); ?>">
-            <input type="hidden" name="subject_id" value="<?php echo sms_e($subjectId); ?>">
-            <input type="hidden" name="status" value="<?php echo sms_e($status); ?>">
-            <input type="hidden" name="search" value="<?php echo sms_e($search); ?>">
-            <div class="filter-grid">
-                <div><label>Academic Session</label><select class="form-select" name="bs_session_id"><?php foreach ($sessions as $item): ?><option value="<?php echo (int) $item['id']; ?>" <?php echo $bsSessionId === (int) $item['id'] ? 'selected' : ''; ?>><?php echo sms_e($item['name']); ?></option><?php endforeach; ?></select></div>
-                <div><label>Term</label><select class="form-select" name="bs_term_id"><?php foreach ($terms as $item): ?><option value="<?php echo (int) $item['id']; ?>" <?php echo $bsTermId === (int) $item['id'] ? 'selected' : ''; ?>><?php echo sms_e($item['name']); ?></option><?php endforeach; ?></select></div>
-                <div><label>Class</label><select class="form-select" name="bs_class_id"><option value="">Select Class</option><?php foreach ($classes as $item): ?><option value="<?php echo (int) $item['id']; ?>" <?php echo $bsClassId === (int) $item['id'] ? 'selected' : ''; ?>><?php echo sms_e($item['name']); ?></option><?php endforeach; ?></select></div>
-                <div><label>Section</label><select class="form-select" name="bs_section_id"><option value="">All Sections</option><?php foreach ($sections as $item): ?><option value="<?php echo (int) $item['id']; ?>" <?php echo $bsSectionId === (int) $item['id'] ? 'selected' : ''; ?>><?php echo sms_e($item['name']); ?></option><?php endforeach; ?></select></div>
-                <div class="d-flex align-items-end gap-2"><button class="module-btn btn-primary-soft" type="submit"><i class="fa-solid fa-table-list"></i> Generate</button></div>
-            </div>
-        </form>
-        <?php if ($broadsheet && $broadsheet['rows']): ?>
-            <div class="table-shell"><table class="table result-table">
-                <thead><tr><th>Position</th><th>Reg. No.</th><th>Student</th><?php foreach ($broadsheet['subjects'] as $subject): ?><th><?php echo sms_e($subject['name']); ?></th><?php endforeach; ?><th>Total</th><th>Average</th><th>Grade</th></tr></thead>
-                <tbody>
-                <?php foreach ($broadsheet['rows'] as $row): ?>
-                    <tr>
-                        <td><?php echo sms_e((string) ($row['summary']['position_in_class'] ?? '-')); ?></td>
-                        <td><?php echo sms_e($row['student']['registration_no']); ?></td>
-                        <td><?php echo sms_e($row['student']['first_name'] . ' ' . $row['student']['last_name']); ?></td>
-                        <?php foreach ($broadsheet['subjects'] as $subject): ?><td><?php echo sms_e((string) ($row['scores'][$subject['id']]['total'] ?? '-')); ?></td><?php endforeach; ?>
-                        <td><?php echo sms_e((string) ($row['summary']['total_score'] ?? '-')); ?></td>
-                        <td><?php echo sms_e((string) ($row['summary']['average_score'] ?? '-')); ?></td>
-                        <td><?php echo sms_e((string) ($row['summary']['grade'] ?? '-')); ?></td>
-                    </tr>
-                <?php endforeach; ?>
-                </tbody>
-            </table></div>
-        <?php elseif ($broadsheet): ?>
-            <p class="text-muted fw-bold mb-0">No students found for this class/section.</p>
-        <?php else: ?>
-            <p class="text-muted fw-bold mb-0">Select a session, term, and class above to generate the broadsheet.</p>
-        <?php endif; ?>
     </section>
 
     <form method="post" action="result-batch-action.php" id="singleActionForm" style="display:none">

@@ -19,6 +19,7 @@ final class CBTService
     use Auditable;
 
     private const EXAM_STATUSES = ['draft', 'published', 'active', 'completed', 'inactive', 'archived'];
+    private const EXAM_TYPES = ['exam', 'practice'];
     private const DEFAULT_PER_PAGE = 15;
 
     private SettingsModel $settings;
@@ -234,7 +235,13 @@ final class CBTService
         $sectionId = (int) ($data['section_id'] ?? 0) ?: null;
         $duration = (int) ($data['duration_minutes'] ?? 0);
         $passMark = $data['pass_mark'] !== '' && $data['pass_mark'] !== null ? (float) $data['pass_mark'] : 40.0;
-        $maxAttempts = (int) ($data['maximum_attempts'] ?? 1) ?: 1;
+        $examType = trim((string) ($data['exam_type'] ?? 'exam'));
+        if (!in_array($examType, self::EXAM_TYPES, true)) { $examType = 'exam'; }
+        // The type is what controls attempt behavior: an exam is exactly one
+        // attempt, a practice set is unlimited (0 = unlimited, enforced in
+        // findOrStartAttempt()). Any submitted maximum_attempts value is
+        // ignored so the two can never drift out of sync.
+        $maxAttempts = $examType === 'practice' ? 0 : 1;
         $description = trim((string) ($data['description'] ?? ''));
         $instructions = trim((string) ($data['instructions'] ?? ''));
 
@@ -261,7 +268,7 @@ final class CBTService
         $payload = [
             'session_id' => $sessionId, 'term_id' => $termId, 'subject_id' => $subjectId, 'class_id' => $classId, 'section_id' => $sectionId,
             'title' => $title, 'description' => $description ?: null, 'instructions' => $instructions ?: null,
-            'duration_minutes' => $duration, 'pass_mark' => $passMark, 'maximum_attempts' => $maxAttempts,
+            'duration_minutes' => $duration, 'pass_mark' => $passMark, 'maximum_attempts' => $maxAttempts, 'exam_type' => $examType,
         ];
 
         if ($id) {
@@ -494,7 +501,8 @@ final class CBTService
             "SELECT COUNT(*) c FROM cbt_attempts WHERE exam_id = :eid AND student_id = :sid AND status IN ('submitted','auto_submitted')",
             ['eid' => $examId, 'sid' => $studentId]
         )['c'] ?? 0);
-        if ($usedAttempts >= (int) $exam['maximum_attempts']) {
+        // maximum_attempts = 0 means unlimited (practice exams).
+        if ((int) $exam['maximum_attempts'] > 0 && $usedAttempts >= (int) $exam['maximum_attempts']) {
             return ['success' => false, 'reason' => 'max_attempts', 'message' => 'You have used all of your attempts for this exam.'];
         }
 
@@ -529,7 +537,7 @@ final class CBTService
     public function attemptWithExam(int $attemptId): ?array
     {
         return $this->db->fetchOne(
-            'SELECT a.*, e.title, e.duration_minutes, e.pass_mark, e.randomize_questions, e.randomize_answers, e.show_result_immediately, e.allow_review, e.status AS exam_status
+            'SELECT a.*, e.title, e.duration_minutes, e.pass_mark, e.randomize_questions, e.randomize_answers, e.show_result_immediately, e.allow_review, e.status AS exam_status, e.exam_type, e.maximum_attempts
              FROM cbt_attempts a INNER JOIN cbt_exams e ON e.id = a.exam_id WHERE a.id = :id',
             ['id' => $attemptId]
         );

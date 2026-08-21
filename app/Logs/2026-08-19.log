@@ -1,0 +1,24 @@
+{"timestamp":"2026-08-19T12:18:16+01:00","channel":"login","message":"User logged in.","context":{"user_id":8,"ip_address":"::1"}}
+{"timestamp":"2026-08-19T12:19:22+01:00","channel":"security","message":"Blocked cross-portal login.","context":{"user_id":3,"portal":"teacher","roles":["accountant"]}}
+{"timestamp":"2026-08-19T12:20:12+01:00","channel":"login","message":"User logged in.","context":{"user_id":2,"ip_address":"::1"}}
+{"timestamp":"2026-08-19T12:25:18+01:00","channel":"login","message":"User logged in.","context":{"user_id":1,"ip_address":"::1"}}
+{"timestamp":"2026-08-19T12:39:56+01:00","channel":"login","message":"User logged in.","context":{"user_id":8,"ip_address":"::1"}}
+{"timestamp":"2026-08-19T13:09:52+01:00","channel":"login","message":"User logged in.","context":{"user_id":2,"ip_address":"::1"}}
+{"timestamp":"2026-08-19T13:12:22+01:00","channel":"exception","message":"Uncaught TypeError: App\\Services\\CBTService::saveQuestion(): Argument #3 ($examId) must be of type int, array given, called in Command line code on line 5 and defined in C:\\xampp\\htdocs\\tech\\app\\Services\\CBTService.php:355\nStack trace:\n#0 Command line code(5): App\\Services\\CBTService->saveQuestion(Array, NULL, Array, 1)\n#1 {main}\n  thrown","context":{"class":"ErrorException","file":"C:\\xampp\\htdocs\\tech\\app\\Services\\CBTService.php","line":355,"trace":"#0 [internal function]: App\\Core\\ExceptionHandler::App\\Core\\{closure}()\n#1 {main}"}}
+{"timestamp":"2026-08-19T13:15:51+01:00","channel":"logout","message":"User logged out.","context":{"user_id":2}}
+{"timestamp":"2026-08-19T13:16:03+01:00","channel":"security","message":"Failed login attempt.","context":{"identifier":"BFSS/2026/SSS/0003","portal":"student"}}
+{"timestamp":"2026-08-19T13:16:54+01:00","channel":"security","message":"Failed login attempt.","context":{"identifier":"BFSS/2026/SSS/0003","portal":"student"}}
+{"timestamp":"2026-08-19T13:17:30+01:00","channel":"security","message":"Failed login attempt.","context":{"identifier":"BFSS/2026/SSS/0003","portal":"student"}}
+{"timestamp":"2026-08-19T13:18:42+01:00","channel":"login","message":"User logged in.","context":{"user_id":8,"ip_address":"::1"}}
+{"timestamp":"2026-08-19T13:22:26+01:00","channel":"login","message":"User logged in.","context":{"user_id":1,"ip_address":"::1"}}
+{"timestamp":"2026-08-19T14:14:13+01:00","channel":"logout","message":"User logged out.","context":{"user_id":1}}
+{"timestamp":"2026-08-19T14:14:35+01:00","channel":"login","message":"User logged in.","context":{"user_id":8,"ip_address":"::1"}}
+{"timestamp":"2026-08-19T14:18:39+01:00","channel":"login","message":"User logged in.","context":{"user_id":8,"ip_address":"::1"}}
+{"timestamp":"2026-08-19T14:23:35+01:00","channel":"logout","message":"User logged out.","context":{"user_id":8}}
+{"timestamp":"2026-08-19T14:23:59+01:00","channel":"login","message":"User logged in.","context":{"user_id":8,"ip_address":"::1"}}
+{"timestamp":"2026-08-19T14:29:14+01:00","channel":"login","message":"User logged in.","context":{"user_id":8,"ip_address":"192.168.0.137"}}
+{"timestamp":"2026-08-19T14:35:30+01:00","channel":"login","message":"User logged in.","context":{"user_id":2,"ip_address":"::1"}}
+{"timestamp":"2026-08-19T14:37:26+01:00","channel":"login","message":"User logged in.","context":{"user_id":1,"ip_address":"::1"}}
+{"timestamp":"2026-08-19T14:40:38+01:00","channel":"logout","message":"User logged out.","context":{"user_id":2}}
+{"timestamp":"2026-08-19T14:40:42+01:00","channel":"login","message":"User logged in.","context":{"user_id":2,"ip_address":"::1"}}
+{"timestamp":"2026-08-19T15:15:34+01:00","channel":"login","message":"User logged in.","context":{"user_id":1,"ip_address":"::1"}}
